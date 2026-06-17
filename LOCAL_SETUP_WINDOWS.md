@@ -126,35 +126,28 @@ messages — those are normal. Only red "error" messages would matter.
 
 ---
 
-## Step 6 — Set up the database (free Vercel Postgres)
+## Step 6 — Set up the database (free Neon Postgres)
 
-The app needs a database to store your tasks. Vercel gives one away free.
+The app needs a database to store your tasks. Neon gives one away free —
+no credit card required.
 
 ### 6a. Create the database
 
-1. Go to **https://vercel.com** and click **Sign Up** (or **Log In** if you
-   have an account). Signing up with your GitHub account is easiest.
-2. Once logged in, look at the top menu and click **Storage**.
-3. Click **Create Database**.
-4. Choose **Postgres**, then click **Continue**.
-5. Give it a name like `fusion-wbs` (lowercase, no spaces) and click
-   **Create**.
+1. Go to **https://neon.tech** and click **Sign Up** (or **Log In**).
+   Signing up with your GitHub account is easiest.
+2. Click **New Project**.
+3. Give it a name like `fusion-wbs` and click **Create Project**.
 
-### 6b. Copy the connection details
+### 6b. Copy the connection string
 
-1. After it's created, you'll land on the database's page. Look for a tab or
-   section labeled **`.env.local`** (it may be under a "Quickstart" or
-   "Connect" heading).
-2. Click the **Copy Snippet** button (or select all the text in that box and
-   copy it). It's a block of lines that look like:
+1. After it's created, look for a section called **Connection Details** or
+   **Connection String**. It may say "Direct connection" or show a string
+   that starts with `postgresql://`.
+2. Copy that string. It will look like:
    ```
-   POSTGRES_URL="postgres://..."
-   POSTGRES_PRISMA_URL="postgres://..."
-   POSTGRES_URL_NON_POOLING="postgres://..."
-   ...
+   postgresql://username:password@ep-something-123.us-east-2.aws.neon.tech/neondb?sslmode=require
    ```
-   These are the secret address and password for your database. Keep them
-   private.
+   This is the secret address and password for your database. Keep it private.
 
 ### 6c. Create your settings file
 
@@ -177,9 +170,13 @@ Now you'll paste those into a settings file the app reads.
    Notepad will say the file doesn't exist and ask if you want to create it —
    click **Yes**.
 
-3. **Paste** the lines you copied from Vercel (Ctrl+V).
+3. **Paste** your connection string from Neon (Ctrl+V), formatted as:
+   ```
+   POSTGRES_URL=postgresql://username:password@ep-something-123.us-east-2.aws.neon.tech/neondb?sslmode=require
+   ```
+   (Just the one line — `POSTGRES_URL=` followed immediately by the string you copied.)
 
-4. On a new line at the bottom, add this:
+4. On a new line below it, add this:
    ```
    NEXT_PUBLIC_BASE_URL=http://localhost:3000
    ```

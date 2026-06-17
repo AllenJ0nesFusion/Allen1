@@ -1,13 +1,13 @@
-import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const sql = getDb();
   const { id } = await params;
   const body = await request.json() as { status?: string; notes?: string; finish_date?: string };
-
   const { status, notes, finish_date } = body;
 
   await sql`
@@ -19,6 +19,6 @@ export async function PUT(
     WHERE wbs_id = ${id}
   `;
 
-  const result = await sql`SELECT * FROM tasks WHERE wbs_id = ${id}`;
-  return NextResponse.json(result.rows[0]);
+  const rows = await sql`SELECT * FROM tasks WHERE wbs_id = ${id}`;
+  return NextResponse.json(rows[0]);
 }

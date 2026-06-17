@@ -1,19 +1,20 @@
-import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ week: string }> }
 ) {
+  const sql = getDb();
   const { week } = await params;
 
-  const capResult = await sql`
+  const capRows = await sql`
     SELECT week_start, week_end FROM capacity_weeks WHERE week_start = ${week}
   `;
-  if (capResult.rows.length === 0) {
+  if (capRows.length === 0) {
     return NextResponse.json({ tasks: [] });
   }
-  const { week_end } = capResult.rows[0];
+  const { week_end } = capRows[0];
 
   const tasks = await sql`
     SELECT wbs_id, task_name, owner, status, start_date, finish_date, effort_hrs
@@ -23,5 +24,5 @@ export async function GET(
       AND finish_date >= ${week}::date
     ORDER BY wbs_id
   `;
-  return NextResponse.json({ tasks: tasks.rows });
+  return NextResponse.json({ tasks });
 }

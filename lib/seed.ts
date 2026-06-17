@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 import * as XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
@@ -38,6 +38,7 @@ function parseGoals(goalStr: string | null | undefined): string[] {
 
 export async function seedDatabase(): Promise<void> {
   try {
+    const sql = getDb();
     // Check if already seeded
     await sql`CREATE TABLE IF NOT EXISTS project_metadata (
       id INT PRIMARY KEY DEFAULT 1,
@@ -45,8 +46,8 @@ export async function seedDatabase(): Promise<void> {
       seeded_at TIMESTAMPTZ
     )`;
 
-    const result = await sql`SELECT seeded_at FROM project_metadata WHERE id = 1`;
-    if (result.rows.length > 0 && result.rows[0].seeded_at) {
+    const rows = await sql`SELECT seeded_at FROM project_metadata WHERE id = 1`;
+    if (rows.length > 0 && rows[0].seeded_at) {
       return;
     }
 

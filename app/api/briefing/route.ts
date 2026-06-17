@@ -1,9 +1,10 @@
-import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
 export async function POST() {
-  const result = await sql`
+  const sql = getDb();
+  const tasks = await sql`
     SELECT DISTINCT
       t.wbs_id, t.task_name, t.status, t.finish_date, t.owner, t.notes,
       array_agg(tg.goal ORDER BY tg.goal) AS goals
@@ -14,12 +15,11 @@ export async function POST() {
     ORDER BY t.wbs_id
   `;
 
-  const tasks = result.rows;
-
-  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD';
+  const formatDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD';
 
   const taskLines = tasks.map((t) =>
-    `- [${t.wbs_id}] ${t.task_name} | Goals: ${(t.goals as string[]).join(', ')} | Status: ${t.status} | Due: ${formatDate(t.finish_date)} | Owner: ${t.owner || 'TBD'} | Notes: ${t.notes || 'none'}`
+    `- [${t.wbs_id}] ${t.task_name} | Goals: ${(t.goals as string[]).join(', ')} | Status: ${t.status} | Due: ${formatDate(t.finish_date as string | null)} | Owner: ${t.owner || 'TBD'} | Notes: ${t.notes || 'none'}`
   ).join('\n');
 
   const prompt = `You are helping Allen Jones at Fusion Health write a paste-ready L&D Goals Tracker status update.
