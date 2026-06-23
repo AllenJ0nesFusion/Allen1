@@ -45,7 +45,7 @@ export default async function MilestonesPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-[#0E4774] mb-1">Milestones</h1>
+      <h1 className="page-title text-2xl mb-1">Milestones</h1>
       <p className="text-sm text-[#404D5B] mb-6">Key dates across the 2026 program timeline</p>
 
       {/* Legend */}
@@ -69,7 +69,7 @@ export default async function MilestonesPage() {
                     className="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full border-2 border-white"
                     style={{ backgroundColor: TYPE_COLOR[m.type] ?? '#9aa5b1' }}
                   />
-                  <div className="bg-white rounded-lg shadow-sm p-4">
+                  <div className="card p-4">
                     <div className="flex justify-between items-start gap-3 flex-wrap">
                       <div>
                         <p className="text-sm font-medium text-[#2C3E50]">{m.name}</p>

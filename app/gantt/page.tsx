@@ -12,7 +12,7 @@ export default async function GanttPage() {
   const tasks = await getTasks();
   return (
     <div>
-      <h1 className="text-xl font-bold text-[#0E4774] mb-1">Timeline</h1>
+      <h1 className="page-title text-2xl mb-1">Timeline</h1>
       <p className="text-sm text-[#404D5B] mb-5">
         2026 project schedule — click any bar to edit status, date, or notes
       </p>

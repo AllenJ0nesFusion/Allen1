@@ -1,24 +1,122 @@
 @import "tailwindcss";
 
+/*
+  Fusion WBS Tracker — design tokens
+  Palette is the official Fusion brand identity (locked); this file refines
+  type scale, elevation, motion, and base element styling within it.
+*/
+
 :root {
   --background: #F4EFEF;
   --foreground: #2C3E50;
+
+  /* Brand palette — official Fusion values, locked */
+  --fusion-navy: #0E4774;
+  --fusion-deep: #305F8E;
+  --fusion-orange: #E8941A;
+  --fusion-slate: #404D5B;
+  --fusion-bg: #F4EFEF;
+  --fusion-gray: #E7E6E6;
+
+  /* Elevation — soft, cool-tinted shadows so cards lift off the warm ground */
+  --shadow-sm: 0 1px 2px rgba(14, 71, 116, 0.06), 0 1px 3px rgba(14, 71, 116, 0.04);
+  --shadow-md: 0 2px 4px rgba(14, 71, 116, 0.06), 0 4px 12px rgba(14, 71, 116, 0.08);
+  --shadow-lg: 0 8px 24px rgba(14, 71, 116, 0.12);
+
+  --radius: 10px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-fusion-navy: #0E4774;
-  --color-fusion-deep: #305F8E;
-  --color-fusion-orange: #E8941A;
-  --color-fusion-slate: #404D5B;
-  --color-fusion-bg: #F4EFEF;
-  --color-fusion-gray: #E7E6E6;
-  --font-sans: 'Aptos', system-ui, -apple-system, sans-serif;
+  --color-fusion-navy: var(--fusion-navy);
+  --color-fusion-deep: var(--fusion-deep);
+  --color-fusion-orange: var(--fusion-orange);
+  --color-fusion-slate: var(--fusion-slate);
+  --color-fusion-bg: var(--fusion-bg);
+  --color-fusion-gray: var(--fusion-gray);
+  --font-sans: 'Aptos', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  border-color: var(--fusion-gray);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Aptos', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv01", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures for all data/numbers so columns align */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Page-title treatment: tight tracking, navy, confident weight */
+.page-title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--fusion-navy);
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fusion-slate);
+}
+
+/* Card surface */
+.card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(228, 224, 220, 0.7);
+}
+
+/* Focus — visible, on-brand */
+:focus-visible {
+  outline: 2px solid var(--fusion-orange);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Entrance motion — one quiet orchestrated moment, staggered by --i */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rise {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
+
+/* Custom scrollbar for timeline / wide panels */
+.scroll-fusion::-webkit-scrollbar { height: 10px; width: 10px; }
+.scroll-fusion::-webkit-scrollbar-track { background: var(--fusion-gray); border-radius: 8px; }
+.scroll-fusion::-webkit-scrollbar-thumb { background: var(--fusion-deep); border-radius: 8px; }
+.scroll-fusion::-webkit-scrollbar-thumb:hover { background: var(--fusion-navy); }
+
+/* Skeleton shimmer for loading states */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #e7e6e6 0%, #f1f0f0 50%, #e7e6e6 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
 }

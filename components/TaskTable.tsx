@@ -91,7 +91,7 @@ export default function TaskTable({ initialTasks }: Props) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs font-semibold text-[#404D5B] uppercase tracking-wide border-b border-gray-100">

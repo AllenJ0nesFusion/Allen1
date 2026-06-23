@@ -22,8 +22,9 @@ export default async function BurndownPage() {
   const weeks = await getCapacity();
   return (
     <div>
-      <h1 className="text-xl font-bold text-[#0E4774] mb-4">Weekly Burndown</h1>
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <h1 className="page-title text-2xl mb-1">Weekly Burndown</h1>
+      <p className="text-sm text-[#404D5B] mb-5">Planned hours against your available capacity, week by week</p>
+      <div className="card p-6">
         <BurndownChart weeks={weeks} />
       </div>
     </div>

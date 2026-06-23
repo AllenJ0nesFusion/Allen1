@@ -144,7 +144,7 @@ export default function GanttChart({ tasks }: Props) {
         </div>
 
         {/* Timeline area */}
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1 overflow-x-auto scroll-fusion">
           <div style={{ minWidth: 800 }}>
             {/* Month header */}
             <div className="relative border-b border-[#E7E6E6] bg-white" style={{ height: 32 }}>

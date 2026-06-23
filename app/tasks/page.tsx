@@ -12,7 +12,8 @@ export default async function TasksPage() {
   const tasks = await getTasks();
   return (
     <div>
-      <h1 className="text-xl font-bold text-[#0E4774] mb-4">Tasks</h1>
+      <h1 className="page-title text-2xl mb-1">Tasks</h1>
+      <p className="text-sm text-[#404D5B] mb-5">Every work item across both lanes — click a row to update status, date, or notes</p>
       <TaskTable initialTasks={tasks} />
     </div>
   );
