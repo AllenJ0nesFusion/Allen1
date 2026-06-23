@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { ensureDependenciesTable, reschedule } from '@/lib/schedule';
+import { ensureDependenciesTable, ensurePercentColumn, reschedule } from '@/lib/schedule';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -7,6 +7,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const sql = getDb();
+  await ensurePercentColumn(sql);
   const { id } = await params;
   const body = await request.json() as {
     status?: string;
@@ -14,8 +15,10 @@ export async function PUT(
     finish_date?: string;
     effort_hrs?: number | null;
     duration_days?: number | null;
+    percent_complete?: number | null;
   };
-  const { status, notes, finish_date, effort_hrs, duration_days } = body;
+  const { status, notes, finish_date, effort_hrs, duration_days, percent_complete } = body;
+  const pct = percent_complete == null ? null : Math.max(0, Math.min(100, Math.round(percent_complete)));
 
   await sql`
     UPDATE tasks SET
@@ -24,6 +27,7 @@ export async function PUT(
       finish_date = COALESCE(${finish_date ?? null}::date, finish_date),
       effort_hrs = COALESCE(${effort_hrs ?? null}, effort_hrs),
       duration_days = COALESCE(${duration_days ?? null}, duration_days),
+      percent_complete = COALESCE(${pct}, percent_complete),
       updated_at = NOW()
     WHERE wbs_id = ${id}
   `;

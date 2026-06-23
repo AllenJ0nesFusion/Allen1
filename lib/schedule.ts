@@ -22,6 +22,21 @@ export async function ensureDependenciesTable(sql: Sql): Promise<void> {
 }
 
 /**
+ * Add the percent_complete column if missing. On first creation, backfill it
+ * from status (Complete → 100) so existing finished tasks read correctly.
+ */
+export async function ensurePercentColumn(sql: Sql): Promise<void> {
+  const existing = await sql`
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'tasks' AND column_name = 'percent_complete'
+  `;
+  if (existing.length === 0) {
+    await sql`ALTER TABLE tasks ADD COLUMN percent_complete SMALLINT NOT NULL DEFAULT 0`;
+    await sql`UPDATE tasks SET percent_complete = 100 WHERE status = 'Complete'`;
+  }
+}
+
+/**
  * Would adding edge (wbs_id depends on predecessor_wbs_id) create a cycle?
  * A cycle exists if predecessor is already reachable from wbs_id via existing edges.
  */

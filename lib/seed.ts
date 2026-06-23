@@ -1653,6 +1653,7 @@ export async function seedDatabase(): Promise<void> {
       effort_hrs SMALLINT,
       owner VARCHAR(100),
       status VARCHAR(30) NOT NULL DEFAULT 'Not Started',
+      percent_complete SMALLINT NOT NULL DEFAULT 0,
       notes TEXT,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`;
@@ -1692,9 +1693,10 @@ export async function seedDatabase(): Promise<void> {
 
     for (const t of TASKS) {
       const parent = deriveParent(t.wbs_id);
+      const pct = t.status === 'Complete' ? 100 : 0;
       await sql`
-        INSERT INTO tasks (wbs_id, parent_wbs_id, outline_level, lane, task_name, start_date, finish_date, duration_days, effort_hrs, owner, status, notes)
-        VALUES (${t.wbs_id}, ${parent}, ${t.outline_level}, ${t.lane}, ${t.task_name}, ${t.start_date}, ${t.finish_date}, ${t.duration_days}, ${t.effort_hrs}, ${t.owner}, ${t.status}, ${t.notes})
+        INSERT INTO tasks (wbs_id, parent_wbs_id, outline_level, lane, task_name, start_date, finish_date, duration_days, effort_hrs, owner, status, percent_complete, notes)
+        VALUES (${t.wbs_id}, ${parent}, ${t.outline_level}, ${t.lane}, ${t.task_name}, ${t.start_date}, ${t.finish_date}, ${t.duration_days}, ${t.effort_hrs}, ${t.owner}, ${t.status}, ${pct}, ${t.notes})
         ON CONFLICT (wbs_id) DO NOTHING
       `;
       for (const goal of t.goals) {

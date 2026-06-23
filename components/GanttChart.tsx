@@ -317,10 +317,20 @@ export default function GanttChart({ tasks }: Props) {
                         outline: t.is_critical ? '2px solid #C00000' : undefined,
                         outlineOffset: t.is_critical ? '1px' : undefined,
                       }}
-                      title={`${t.wbs_id} — ${t.task_name.trim()} (${t.status})${t.is_critical ? ' ⚠ Critical path' : ''}`}
+                      title={`${t.wbs_id} — ${t.task_name.trim()} (${t.status}, ${t.percent_complete ?? 0}% complete)${t.is_critical ? ' ⚠ Critical path' : ''}`}
                       onClick={() => setEditId(t.wbs_id)}
                     >
-                      <span className="truncate whitespace-nowrap">{t.task_name.trim()}</span>
+                      {/* Progress fill — darker inner bar like MS Project */}
+                      {(t.percent_complete ?? 0) > 0 && (
+                        <div
+                          className="absolute left-0 top-0 h-full pointer-events-none"
+                          style={{
+                            width: `${t.percent_complete}%`,
+                            backgroundColor: 'rgba(0,0,0,0.32)',
+                          }}
+                        />
+                      )}
+                      <span className="truncate whitespace-nowrap relative z-10">{t.task_name.trim()}</span>
                     </div>
                   )}
                 </div>

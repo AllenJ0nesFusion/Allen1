@@ -1,16 +1,19 @@
 import { getDb } from '@/lib/db';
+import { ensurePercentColumn } from '@/lib/schedule';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   const sql = getDb();
+  await ensurePercentColumn(sql);
 
-  // Progress by lane (leaf tasks only)
+  // Progress by lane (leaf tasks only) — avg_pct is the mean % complete across leaf tasks
   const laneProgress = await sql`
     SELECT
       lane,
       COUNT(*) FILTER (WHERE outline_level = 3) AS total,
       COUNT(*) FILTER (WHERE outline_level = 3 AND status = 'Complete') AS complete,
-      COUNT(*) FILTER (WHERE outline_level = 3 AND status = 'In Progress') AS in_progress
+      COUNT(*) FILTER (WHERE outline_level = 3 AND status = 'In Progress') AS in_progress,
+      COALESCE(ROUND(AVG(percent_complete) FILTER (WHERE outline_level = 3)), 0) AS avg_pct
     FROM tasks
     GROUP BY lane
     ORDER BY lane

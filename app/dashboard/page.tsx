@@ -6,6 +6,7 @@ interface LaneProgress {
   total: number;
   complete: number;
   in_progress: number;
+  avg_pct: number;
 }
 interface StatusCount { status: string; count: number; }
 interface AttentionTask {
@@ -66,7 +67,9 @@ export default async function DashboardPage() {
   const totalTasks = data.laneProgress.reduce((s, l) => s + Number(l.total), 0);
   const totalComplete = data.laneProgress.reduce((s, l) => s + Number(l.complete), 0);
   const totalInProgress = data.laneProgress.reduce((s, l) => s + Number(l.in_progress), 0);
-  const overallPct = totalTasks ? Math.round((totalComplete / totalTasks) * 100) : 0;
+  // Weighted mean of each lane's average % complete, weighted by task count
+  const weightedPctSum = data.laneProgress.reduce((s, l) => s + Number(l.avg_pct) * Number(l.total), 0);
+  const overallPct = totalTasks ? Math.round(weightedPctSum / totalTasks) : 0;
   const cw = data.currentWeek;
   const cwColor = cw
     ? cw.variance < 0 ? '#C00000' : cw.variance <= cw.available_hrs * 0.1 ? '#E8941A' : '#16a34a'
@@ -117,7 +120,7 @@ export default async function DashboardPage() {
           <div className="flex items-end gap-4">
             <div className="text-right">
               <p className="text-5xl font-bold text-white tnum leading-none">{overallPct}<span className="text-2xl">%</span></p>
-              <p className="text-xs text-white/70 mt-1.5 tnum">{totalComplete} of {totalTasks} tasks complete</p>
+              <p className="text-xs text-white/70 mt-1.5 tnum">avg progress · {totalComplete} of {totalTasks} tasks complete</p>
             </div>
           </div>
         </div>
@@ -177,7 +180,7 @@ export default async function DashboardPage() {
             <h2 className="text-sm font-bold text-[#0E4774] mb-4">Progress by Lane</h2>
             <div className="space-y-4">
               {data.laneProgress.map((l) => {
-                const pct = Number(l.total) ? Math.round((Number(l.complete) / Number(l.total)) * 100) : 0;
+                const pct = Number(l.avg_pct);
                 return (
                   <div key={l.lane}>
                     <div className="flex justify-between text-xs text-[#404D5B] mb-1.5">

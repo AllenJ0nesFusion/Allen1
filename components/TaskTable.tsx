@@ -128,6 +128,7 @@ export default function TaskTable({ initialTasks }: Props) {
               <th className="px-4 py-3">Task</th>
               <th className="px-4 py-3">Owner</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Progress</th>
               <th className="px-4 py-3">Finish</th>
               <th className="px-4 py-3">Effort</th>
               <th className="px-4 py-3 text-[#C00000]" title="Critical path task">CP</th>
@@ -141,7 +142,7 @@ export default function TaskTable({ initialTasks }: Props) {
                 <Fragment key={`lane-${lane}`}>
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-2 text-sm font-bold text-white"
                       style={{ backgroundColor: '#0E4774' }}
                     >
@@ -178,6 +179,20 @@ export default function TaskTable({ initialTasks }: Props) {
                             </td>
                             <td className="px-4 py-2.5 text-[#404D5B] text-xs">{t.owner ?? '—'}</td>
                             <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2 w-28">
+                                <div className="flex-1 h-1.5 rounded-full bg-[#E7E6E6] overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${t.percent_complete ?? 0}%`,
+                                      backgroundColor: (t.percent_complete ?? 0) === 100 ? '#16a34a' : '#0E4774',
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[10px] tabular-nums text-[#404D5B] w-7 text-right">{t.percent_complete ?? 0}%</span>
+                              </div>
+                            </td>
                             <td className="px-4 py-2.5 text-xs text-[#404D5B]">{formatDate(t.finish_date as string | null)}</td>
                             <td className="px-4 py-2.5 text-xs text-[#404D5B]">{t.effort_hrs != null ? `${t.effort_hrs}h` : '—'}</td>
                             <td className="px-4 py-2.5">

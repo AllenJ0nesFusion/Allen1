@@ -25,6 +25,7 @@ export interface TaskRow {
   effort_hrs: number | null;
   owner: string | null;
   status: string;
+  percent_complete?: number;
   notes: string | null;
   goals: string[];
   predecessors?: Predecessor[];
@@ -42,6 +43,7 @@ interface Props {
 
 export default function EditModal({ task, allTasks, onClose, onRefresh }: Props) {
   const [status, setStatus] = useState(task.status);
+  const [percent, setPercent] = useState(task.percent_complete ?? 0);
   const [finishDate, setFinishDate] = useState(task.finish_date?.split('T')[0] ?? '');
   const [finishDirty, setFinishDirty] = useState(false);
   const [effortHrs, setEffortHrs] = useState(task.effort_hrs != null ? String(task.effort_hrs) : '');
@@ -79,6 +81,22 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
     }
   }
 
+  // Convenience: picking a status nudges % to the matching extreme
+  function handleStatusChange(value: string) {
+    setStatus(value);
+    if (value === 'Complete') setPercent(100);
+    else if (value === 'Not Started' && percent === 100) setPercent(0);
+  }
+
+  // Convenience: dragging % to its extremes nudges status
+  function handlePercentChange(value: number) {
+    const p = Math.max(0, Math.min(100, value));
+    setPercent(p);
+    if (p === 100) setStatus('Complete');
+    else if (p > 0 && (status === 'Not Started' || status === 'Complete')) setStatus('In Progress');
+    else if (p === 0 && status === 'Complete') setStatus('Not Started');
+  }
+
   async function handleSave() {
     setSaving(true);
     await fetch(`/api/tasks/${encodeURIComponent(task.wbs_id)}`, {
@@ -90,6 +108,7 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
         finish_date: finishDate || null,
         effort_hrs: effortHrs === '' ? null : Number(effortHrs),
         duration_days: effortHrs ? Math.ceil(Number(effortHrs) / HOURS_PER_DAY) : null,
+        percent_complete: percent,
       }),
     });
     await onRefresh();
@@ -156,9 +175,31 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-[#404D5B] mb-1">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
+            <select value={status} onChange={(e) => handleStatusChange(e.target.value)} className={fieldClass}>
               {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="flex items-center justify-between text-xs font-medium text-[#404D5B] mb-1">
+              <span>% Complete</span>
+              <span className="tabular-nums font-semibold text-[#0E4774]">{percent}%</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={percent}
+              onChange={(e) => handlePercentChange(Number(e.target.value))}
+              className="w-full accent-[#0E4774]"
+            />
+            <div className="mt-1.5 h-2 rounded-full bg-[#E7E6E6] overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${percent}%`, backgroundColor: percent === 100 ? '#16a34a' : '#0E4774' }}
+              />
+            </div>
           </div>
 
           <div>
