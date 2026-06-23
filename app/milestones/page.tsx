@@ -1,3 +1,5 @@
+import { headers } from 'next/headers';
+
 interface Milestone {
   id: number;
   type: string;
@@ -10,7 +12,8 @@ interface Milestone {
 
 async function getMilestones(): Promise<Milestone[]> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/milestones`, { cache: 'no-store' });
+  const cookie = (await headers()).get('cookie') ?? '';
+  const res = await fetch(`${baseUrl}/api/milestones`, { cache: 'no-store', headers: { cookie } });
   if (!res.ok) return [];
   return res.json() as Promise<Milestone[]>;
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import StatusPill from '@/components/StatusPill';
+import { headers } from 'next/headers';
 
 interface LaneProgress {
   lane: string;
@@ -32,7 +33,8 @@ interface DashboardData {
 
 async function getData(): Promise<DashboardData | null> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/dashboard`, { cache: 'no-store' });
+  const cookie = (await headers()).get('cookie') ?? '';
+  const res = await fetch(`${baseUrl}/api/dashboard`, { cache: 'no-store', headers: { cookie } });
   if (!res.ok) return null;
   return res.json() as Promise<DashboardData>;
 }

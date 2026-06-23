@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-const links = [
+const baseLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/tasks', label: 'Tasks' },
   { href: '/gantt', label: 'Timeline' },
@@ -13,9 +13,22 @@ const links = [
   { href: '/briefing', label: 'Briefing' },
 ];
 
-export default function Nav() {
+interface NavUser { name: string; role: string }
+
+export default function Nav({ user }: { user: NavUser }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  const links = user.role === 'Admin'
+    ? [...baseLinks, { href: '/admin/users', label: 'Users' }]
+    : baseLinks;
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <nav
@@ -50,6 +63,19 @@ export default function Nav() {
               </Link>
             );
           })}
+        </div>
+
+        {/* User chip + logout (desktop) */}
+        <div className="hidden md:flex items-center gap-3 pl-3 ml-1 border-l border-white/15">
+          <span className="text-xs text-white/70 max-w-[160px] truncate" title={`${user.name} · ${user.role}`}>
+            {user.name}
+          </span>
+          <button
+            onClick={logout}
+            className="text-xs font-medium text-white/80 hover:text-white px-2.5 py-1 rounded border border-white/25 hover:border-white/50 transition-colors"
+          >
+            Sign out
+          </button>
         </div>
 
         {/* Mobile toggle */}
@@ -87,6 +113,12 @@ export default function Nav() {
               </Link>
             );
           })}
+          <div className="flex items-center justify-between px-3 py-2 mt-1 border-t border-white/15">
+            <span className="text-xs text-white/70 truncate">{user.name} · {user.role}</span>
+            <button onClick={logout} className="text-xs font-medium text-white/80 hover:text-white px-2.5 py-1 rounded border border-white/25">
+              Sign out
+            </button>
+          </div>
         </div>
       )}
     </nav>

@@ -1,9 +1,11 @@
 import TaskTable from '@/components/TaskTable';
 import { type TaskRow } from '@/components/EditModal';
+import { headers } from 'next/headers';
 
 async function getTasksData(): Promise<{ tasks: TaskRow[]; projectEnd: string | null }> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/tasks`, { cache: 'no-store' });
+  const cookie = (await headers()).get('cookie') ?? '';
+  const res = await fetch(`${baseUrl}/api/tasks`, { cache: 'no-store', headers: { cookie } });
   if (!res.ok) return { tasks: [], projectEnd: null };
   return res.json() as Promise<{ tasks: TaskRow[]; projectEnd: string | null }>;
 }

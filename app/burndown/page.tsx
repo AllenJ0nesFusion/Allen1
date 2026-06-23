@@ -1,4 +1,5 @@
 import BurndownChart from '@/components/BurndownChart';
+import { headers } from 'next/headers';
 
 interface WeekRow {
   week_start: string;
@@ -13,7 +14,8 @@ interface WeekRow {
 
 async function getCapacity(): Promise<WeekRow[]> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/capacity`, { cache: 'no-store' });
+  const cookie = (await headers()).get('cookie') ?? '';
+  const res = await fetch(`${baseUrl}/api/capacity`, { cache: 'no-store', headers: { cookie } });
   if (!res.ok) return [];
   return res.json() as Promise<WeekRow[]>;
 }
