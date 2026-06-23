@@ -112,7 +112,12 @@ export default function GanttChart({ tasks }: Props) {
   for (const lane of laneOrder) {
     rows.push({ type: 'lane', label: lane });
     for (const ws of wsOrder.get(lane) ?? []) {
-      const taskRows = lanes.get(lane)?.get(ws) ?? [];
+      const taskRows = (lanes.get(lane)?.get(ws) ?? []).slice().sort((a, b) => {
+        const da = a.start_date ? new Date(a.start_date).getTime() : Infinity;
+        const db = b.start_date ? new Date(b.start_date).getTime() : Infinity;
+        if (da !== db) return da - db;
+        return a.wbs_id.localeCompare(b.wbs_id, undefined, { numeric: true });
+      });
       if (taskRows.length === 0) continue;
       rows.push({ type: 'workstream', label: ws });
       for (const t of taskRows) rows.push({ type: 'task', label: t.task_name.trim(), task: t });

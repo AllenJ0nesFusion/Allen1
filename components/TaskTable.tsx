@@ -54,6 +54,17 @@ export default function TaskTable({ initialTasks }: Props) {
       }
       laneEntry.level2.get(parentName)!.push(t);
     }
+    // Order tasks within each workstream by start date (nulls last), wbs_id as tiebreak
+    for (const { level2 } of lanes.values()) {
+      for (const arr of level2.values()) {
+        arr.sort((a, b) => {
+          const da = a.start_date ? new Date(a.start_date).getTime() : Infinity;
+          const db = b.start_date ? new Date(b.start_date).getTime() : Infinity;
+          if (da !== db) return da - db;
+          return a.wbs_id.localeCompare(b.wbs_id, undefined, { numeric: true });
+        });
+      }
+    }
     return lanes;
   }, [tasks, filtered]);
 
