@@ -3,6 +3,7 @@
 import { useState, useMemo, Fragment } from 'react';
 import StatusPill from './StatusPill';
 import EditModal, { type TaskRow } from './EditModal';
+import AddTaskModal from './AddTaskModal';
 
 const STATUS_OPTIONS = [
   'All', 'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
@@ -20,6 +21,7 @@ export default function TaskTable({ initialTasks }: Props) {
   const [laneFilter, setLaneFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [editTask, setEditTask] = useState<TaskRow | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
@@ -60,6 +62,16 @@ export default function TaskTable({ initialTasks }: Props) {
     setEditTask(null);
   }
 
+  function handleDeleted(wbsId: string) {
+    setTasks((prev) => prev.filter((t) => t.wbs_id !== wbsId));
+    setEditTask(null);
+  }
+
+  function handleCreated(created: TaskRow) {
+    setTasks((prev) => [...prev, created]);
+    setAdding(false);
+  }
+
   const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
 
@@ -88,6 +100,13 @@ export default function TaskTable({ initialTasks }: Props) {
         >
           {STATUS_OPTIONS.map((o) => <option key={o}>{o}</option>)}
         </select>
+        <button
+          onClick={() => setAdding(true)}
+          className="ml-auto px-4 py-1.5 text-sm font-semibold text-white rounded transition-all hover:shadow-md"
+          style={{ backgroundColor: '#0E4774' }}
+        >
+          + Add Task
+        </button>
       </div>
 
       {/* Table */}
@@ -153,7 +172,11 @@ export default function TaskTable({ initialTasks }: Props) {
       </div>
 
       {editTask && (
-        <EditModal task={editTask} onClose={() => setEditTask(null)} onSaved={handleSaved} />
+        <EditModal task={editTask} onClose={() => setEditTask(null)} onSaved={handleSaved} onDeleted={handleDeleted} />
+      )}
+
+      {adding && (
+        <AddTaskModal tasks={tasks} onClose={() => setAdding(false)} onCreated={handleCreated} />
       )}
     </div>
   );

@@ -266,6 +266,10 @@ export default function GanttChart({ tasks }: Props) {
             setUpdatedTasks(prev => prev.map(t => t.wbs_id === updated.wbs_id ? { ...t, ...updated } : t));
             setEditTask(null);
           }}
+          onDeleted={(wbsId) => {
+            setUpdatedTasks(prev => prev.filter(t => t.wbs_id !== wbsId));
+            setEditTask(null);
+          }}
         />
       )}
     </div>
