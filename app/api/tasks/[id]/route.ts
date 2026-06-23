@@ -7,14 +7,22 @@ export async function PUT(
 ) {
   const sql = getDb();
   const { id } = await params;
-  const body = await request.json() as { status?: string; notes?: string; finish_date?: string };
-  const { status, notes, finish_date } = body;
+  const body = await request.json() as {
+    status?: string;
+    notes?: string;
+    finish_date?: string;
+    effort_hrs?: number | null;
+    duration_days?: number | null;
+  };
+  const { status, notes, finish_date, effort_hrs, duration_days } = body;
 
   await sql`
     UPDATE tasks SET
       status = COALESCE(${status ?? null}, status),
       notes = COALESCE(${notes ?? null}, notes),
       finish_date = COALESCE(${finish_date ?? null}::date, finish_date),
+      effort_hrs = COALESCE(${effort_hrs ?? null}, effort_hrs),
+      duration_days = COALESCE(${duration_days ?? null}, duration_days),
       updated_at = NOW()
     WHERE wbs_id = ${id}
   `;

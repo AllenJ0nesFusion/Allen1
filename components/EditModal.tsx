@@ -6,6 +6,17 @@ const STATUS_OPTIONS = [
   'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
 ];
 
+const HOURS_PER_DAY = 8;
+
+// finish = start + ceil(effort / hours-per-day) calendar days (inclusive of start day)
+function calcFinish(startDate: string | null, effortHrs: number): string | null {
+  if (!startDate || !effortHrs || effortHrs <= 0) return null;
+  const days = Math.ceil(effortHrs / HOURS_PER_DAY);
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + Math.max(0, days - 1));
+  return d.toISOString().split('T')[0];
+}
+
 export interface TaskRow {
   wbs_id: string;
   parent_wbs_id: string | null;
@@ -33,7 +44,20 @@ interface Props {
 export default function EditModal({ task, onClose, onSaved, onDeleted }: Props) {
   const [status, setStatus] = useState(task.status);
   const [finishDate, setFinishDate] = useState(task.finish_date?.split('T')[0] ?? '');
+  const [effortHrs, setEffortHrs] = useState(task.effort_hrs != null ? String(task.effort_hrs) : '');
+  const [autoFinish, setAutoFinish] = useState(false);
   const [notes, setNotes] = useState(task.notes ?? '');
+
+  // Changing effort recomputes the finish date (only if we have a start date)
+  function handleEffortChange(value: string) {
+    setEffortHrs(value);
+    const hrs = Number(value);
+    const next = calcFinish(task.start_date, hrs);
+    if (next) {
+      setFinishDate(next);
+      setAutoFinish(true);
+    }
+  }
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -44,7 +68,13 @@ export default function EditModal({ task, onClose, onSaved, onDeleted }: Props) 
     const res = await fetch(`/api/tasks/${encodeURIComponent(task.wbs_id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, notes, finish_date: finishDate || null }),
+      body: JSON.stringify({
+        status,
+        notes,
+        finish_date: finishDate || null,
+        effort_hrs: effortHrs === '' ? null : Number(effortHrs),
+        duration_days: effortHrs ? Math.ceil(Number(effortHrs) / HOURS_PER_DAY) : null,
+      }),
     });
     const updated = await res.json() as TaskRow;
     setSaving(false);
@@ -85,13 +115,32 @@ export default function EditModal({ task, onClose, onSaved, onDeleted }: Props) 
           </div>
 
           <div>
+            <label className="block text-xs font-medium text-[#404D5B] mb-1">Effort (hrs)</label>
+            <input
+              type="number"
+              min="0"
+              value={effortHrs}
+              onChange={(e) => handleEffortChange(e.target.value)}
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E4774]"
+            />
+            {!task.start_date && effortHrs && (
+              <p className="text-xs text-[#404D5B] mt-1">No start date set — add one to auto-calculate the finish date.</p>
+            )}
+          </div>
+
+          <div>
             <label className="block text-xs font-medium text-[#404D5B] mb-1">Finish Date</label>
             <input
               type="date"
               value={finishDate}
-              onChange={(e) => setFinishDate(e.target.value)}
+              onChange={(e) => { setFinishDate(e.target.value); setAutoFinish(false); }}
               className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E4774]"
             />
+            {autoFinish && (
+              <p className="text-xs text-[#E8941A] mt-1">
+                Auto-set from effort ({Math.ceil(Number(effortHrs) / HOURS_PER_DAY)} day{Math.ceil(Number(effortHrs) / HOURS_PER_DAY) === 1 ? '' : 's'} at {HOURS_PER_DAY} hrs/day). Edit to override.
+              </p>
+            )}
           </div>
 
           <div>
