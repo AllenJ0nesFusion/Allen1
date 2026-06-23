@@ -143,16 +143,10 @@ export default function GanttChart({ tasks }: Props) {
           </div>
           {rows.map((r, i) => {
             if (r.type === 'lane') return (
-              <div key={i} className="flex items-center px-3 font-bold text-xs text-white truncate"
-                style={{ height: ROW_H, backgroundColor: '#0E4774' }}>
-                {r.label}
-              </div>
+              <div key={i} style={{ height: ROW_H, backgroundColor: '#0E4774' }} />
             );
             if (r.type === 'workstream') return (
-              <div key={i} className="flex items-center px-3 font-semibold text-xs text-[#404D5B] truncate"
-                style={{ height: ROW_H, backgroundColor: '#E7E6E6' }}>
-                {r.label}
-              </div>
+              <div key={i} style={{ height: ROW_H, backgroundColor: '#E7E6E6' }} />
             );
             return (
               <div key={i} className="flex items-center px-3 text-xs text-[#2C3E50] truncate border-b border-[#F4EFEF] hover:bg-[#F4EFEF] cursor-pointer"
@@ -191,10 +185,14 @@ export default function GanttChart({ tasks }: Props) {
             {/* Rows */}
             {rows.map((r, i) => {
               if (r.type === 'lane') return (
-                <div key={i} style={{ height: ROW_H, backgroundColor: '#0E4774' }} />
+                <div key={i} className="flex items-center" style={{ height: ROW_H, backgroundColor: '#0E4774' }}>
+                  <span className="sticky left-0 px-3 font-bold text-xs text-white whitespace-nowrap">{r.label}</span>
+                </div>
               );
               if (r.type === 'workstream') return (
-                <div key={i} style={{ height: ROW_H, backgroundColor: '#E7E6E6' }} />
+                <div key={i} className="flex items-center" style={{ height: ROW_H, backgroundColor: '#E7E6E6' }}>
+                  <span className="sticky left-0 px-3 font-semibold text-xs text-[#404D5B] whitespace-nowrap">{r.label}</span>
+                </div>
               );
 
               // Task row
