@@ -67,6 +67,27 @@ interface Props {
 export default function GanttChart({ tasks }: Props) {
   const [editTask, setEditTask] = useState<TaskRow | null>(null);
   const [updatedTasks, setUpdatedTasks] = useState<TaskRow[]>(tasks);
+  const [labelW, setLabelW] = useState(260);
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = labelW;
+    function onMove(ev: MouseEvent) {
+      const next = Math.min(560, Math.max(160, startW + (ev.clientX - startX)));
+      setLabelW(next);
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
 
   const months = monthMarkers();
   const todayLeft = todayPct();
@@ -99,12 +120,11 @@ export default function GanttChart({ tasks }: Props) {
   }
 
   const ROW_H = 28;
-  const LABEL_W = 260;
 
   return (
     <div>
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
         {Object.entries(STATUS_BAR).map(([s, c]) => (
           <span key={s} className="flex items-center gap-1.5 text-xs text-[#404D5B]">
             <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: c.bg }} />
@@ -113,12 +133,14 @@ export default function GanttChart({ tasks }: Props) {
         ))}
       </div>
 
-      {/* Chart wrapper: fixed label col + scrollable timeline */}
+      {/* Chart wrapper: resizable label col + scrollable timeline */}
       <div className="flex rounded-lg overflow-hidden shadow-sm border border-[#E7E6E6]">
         {/* Label column */}
-        <div className="flex-shrink-0 bg-white border-r border-[#E7E6E6]" style={{ width: LABEL_W }}>
-          {/* Header spacer */}
-          <div style={{ height: 32 }} className="border-b border-[#E7E6E6]" />
+        <div className="flex-shrink-0 bg-white" style={{ width: labelW }}>
+          {/* Header */}
+          <div style={{ height: 32 }} className="border-b border-[#E7E6E6] flex items-center px-3">
+            <span className="eyebrow">Task</span>
+          </div>
           {rows.map((r, i) => {
             if (r.type === 'lane') return (
               <div key={i} className="flex items-center px-3 font-bold text-xs text-white truncate"
@@ -142,6 +164,15 @@ export default function GanttChart({ tasks }: Props) {
             );
           })}
         </div>
+
+        {/* Drag handle to resize label column */}
+        <div
+          onMouseDown={startResize}
+          className="flex-shrink-0 w-1.5 cursor-col-resize bg-[#E7E6E6] hover:bg-[#E8941A] transition-colors"
+          title="Drag to resize"
+          role="separator"
+          aria-orientation="vertical"
+        />
 
         {/* Timeline area */}
         <div className="flex-1 overflow-x-auto scroll-fusion">
