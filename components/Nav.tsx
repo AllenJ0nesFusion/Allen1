@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 const baseLinks = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/goals', label: 'Goals' },
   { href: '/tasks', label: 'Tasks' },
   { href: '/gantt', label: 'Timeline' },
   { href: '/milestones', label: 'Milestones' },

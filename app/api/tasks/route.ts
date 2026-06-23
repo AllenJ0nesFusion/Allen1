@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db';
 import { ensureDependenciesTable, ensurePercentColumn, computeCriticalPath, type DepRow } from '@/lib/schedule';
+import { ensureGoalsSchema, goalIdForLane } from '@/lib/goals';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
@@ -84,11 +85,15 @@ export async function POST(request: NextRequest) {
   const effort_hrs = body.effort_hrs ?? null;
   const owner = body.owner?.trim() || null;
 
+  // Link the new task to the goal that owns its lane (so rollups stay correct)
+  await ensureGoalsSchema(sql);
+  const goalId = await goalIdForLane(sql, lane);
+
   await sql`
-    INSERT INTO tasks (wbs_id, parent_wbs_id, outline_level, lane, task_name, start_date, finish_date, effort_hrs, owner, status)
+    INSERT INTO tasks (wbs_id, parent_wbs_id, outline_level, lane, task_name, start_date, finish_date, effort_hrs, owner, status, goal_id)
     VALUES (
       ${newWbsId}, ${parent_wbs_id}, 3, ${lane}, ${task_name.trim()},
-      ${start_date}::date, ${finish_date}::date, ${effort_hrs}, ${owner}, ${status}
+      ${start_date}::date, ${finish_date}::date, ${effort_hrs}, ${owner}, ${status}, ${goalId}
     )
   `;
 
