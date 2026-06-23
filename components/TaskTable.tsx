@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import StatusPill from './StatusPill';
 import EditModal, { type TaskRow } from './EditModal';
 
@@ -108,8 +108,8 @@ export default function TaskTable({ initialTasks }: Props) {
               const hasAnyRows = level2Order.some((k) => (level2.get(k)?.length ?? 0) > 0);
               if (!hasAnyRows) return null;
               return (
-                <>
-                  <tr key={`lane-${lane}`}>
+                <Fragment key={`lane-${lane}`}>
+                  <tr>
                     <td
                       colSpan={6}
                       className="px-4 py-2 text-sm font-bold text-white"
@@ -122,8 +122,8 @@ export default function TaskTable({ initialTasks }: Props) {
                     const rows = level2.get(parentName) ?? [];
                     if (rows.length === 0) return null;
                     return (
-                      <>
-                        <tr key={`ws-${parentName}`} style={{ backgroundColor: '#E7E6E6' }}>
+                      <Fragment key={`ws-${lane}-${parentName}`}>
+                        <tr style={{ backgroundColor: '#E7E6E6' }}>
                           <td colSpan={6} className="px-4 py-2 text-xs font-semibold text-[#404D5B]">
                             {parentName}
                           </td>
@@ -142,10 +142,10 @@ export default function TaskTable({ initialTasks }: Props) {
                             <td className="px-4 py-2.5 text-xs text-[#404D5B]">{t.effort_hrs != null ? `${t.effort_hrs}h` : '—'}</td>
                           </tr>
                         ))}
-                      </>
+                      </Fragment>
                     );
                   })}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
