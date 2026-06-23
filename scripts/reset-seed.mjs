@@ -23,7 +23,8 @@ async function drop(label, fn) {
   }
 }
 
-// Order matters: task_goals references tasks
+// Order matters: these reference tasks
+await drop('task_dependencies', () => sql`DELETE FROM task_dependencies`);
 await drop('task_goals', () => sql`DELETE FROM task_goals`);
 await drop('tasks', () => sql`DELETE FROM tasks`);
 await drop('milestones', () => sql`DELETE FROM milestones`);

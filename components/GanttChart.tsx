@@ -65,9 +65,18 @@ interface Props {
 }
 
 export default function GanttChart({ tasks }: Props) {
-  const [editTask, setEditTask] = useState<TaskRow | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [updatedTasks, setUpdatedTasks] = useState<TaskRow[]>(tasks);
   const [labelW, setLabelW] = useState(260);
+
+  async function refresh(): Promise<TaskRow[]> {
+    const res = await fetch('/api/tasks', { cache: 'no-store' });
+    const data = await res.json() as TaskRow[];
+    setUpdatedTasks(data);
+    return data;
+  }
+
+  const editTask = editId ? updatedTasks.find((t) => t.wbs_id === editId) ?? null : null;
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
@@ -125,6 +134,40 @@ export default function GanttChart({ tasks }: Props) {
   }
 
   const ROW_H = 28;
+  const HEADER_H = 32;
+
+  // Geometry for dependency arrows: map each visible task bar to its row + horizontal span
+  const geom = new Map<string, { row: number; startPct: number; endPct: number }>();
+  rows.forEach((r, i) => {
+    if (r.type !== 'task' || !r.task) return;
+    const t = r.task;
+    if (!t.start_date || !t.finish_date) return;
+    const startOff = Math.max(0, dayOffset(t.start_date));
+    const endOff = Math.min(TOTAL_DAYS - 1, dayOffset(t.finish_date));
+    geom.set(t.wbs_id, {
+      row: i,
+      startPct: (startOff / TOTAL_DAYS) * 100,
+      endPct: ((endOff + 1) / TOTAL_DAYS) * 100,
+    });
+  });
+  const rowY = (row: number) => HEADER_H + row * ROW_H + ROW_H / 2;
+  const arrows: { key: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const r of rows) {
+    if (r.type !== 'task' || !r.task) continue;
+    const succ = geom.get(r.task.wbs_id);
+    if (!succ) continue;
+    for (const p of r.task.predecessors ?? []) {
+      if (p.dep_type !== 'FS') continue;
+      const pred = geom.get(p.wbs_id);
+      if (!pred) continue;
+      arrows.push({
+        key: `${p.wbs_id}->${r.task.wbs_id}`,
+        x1: pred.endPct, y1: rowY(pred.row),
+        x2: succ.startPct, y2: rowY(succ.row),
+      });
+    }
+  }
+  const timelineHeight = HEADER_H + rows.length * ROW_H;
 
   return (
     <div>
@@ -163,7 +206,7 @@ export default function GanttChart({ tasks }: Props) {
               <div key={i} className="flex items-center px-3 text-xs text-[#2C3E50] truncate border-b border-[#F4EFEF] hover:bg-[#F4EFEF] cursor-pointer"
                 style={{ height: ROW_H }}
                 title={r.label}
-                onClick={() => r.task && setEditTask(r.task)}>
+                onClick={() => r.task && setEditId(r.task.wbs_id)}>
                 {r.label}
               </div>
             );
@@ -183,7 +226,31 @@ export default function GanttChart({ tasks }: Props) {
 
         {/* Timeline area */}
         <div className="flex-1 overflow-x-auto scroll-fusion">
-          <div style={{ minWidth: 800 }}>
+          <div style={{ minWidth: 800 }} className="relative">
+            {/* Dependency arrows overlay (FS links) */}
+            {arrows.length > 0 && (
+              <svg
+                className="absolute inset-0 pointer-events-none z-10"
+                width="100%"
+                height={timelineHeight}
+                style={{ overflow: 'visible' }}
+              >
+                <defs>
+                  <marker id="dep-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#7030A0" />
+                  </marker>
+                </defs>
+                {arrows.map((a) => (
+                  <line
+                    key={a.key}
+                    x1={`${a.x1}%`} y1={a.y1}
+                    x2={`${a.x2}%`} y2={a.y2}
+                    stroke="#7030A0" strokeWidth={1.25} strokeOpacity={0.65}
+                    markerEnd="url(#dep-arrow)"
+                  />
+                ))}
+              </svg>
+            )}
             {/* Month header */}
             <div className="relative border-b border-[#E7E6E6] bg-white" style={{ height: 32 }}>
               {months.map((m) => (
@@ -244,7 +311,7 @@ export default function GanttChart({ tasks }: Props) {
                         minWidth: 4,
                       }}
                       title={`${t.wbs_id} — ${t.task_name.trim()} (${t.status})`}
-                      onClick={() => setEditTask(t)}
+                      onClick={() => setEditId(t.wbs_id)}
                     >
                       <span className="truncate whitespace-nowrap">{t.task_name.trim()}</span>
                     </div>
@@ -266,15 +333,9 @@ export default function GanttChart({ tasks }: Props) {
       {editTask && (
         <EditModal
           task={editTask}
-          onClose={() => setEditTask(null)}
-          onSaved={(updated) => {
-            setUpdatedTasks(prev => prev.map(t => t.wbs_id === updated.wbs_id ? { ...t, ...updated } : t));
-            setEditTask(null);
-          }}
-          onDeleted={(wbsId) => {
-            setUpdatedTasks(prev => prev.filter(t => t.wbs_id !== wbsId));
-            setEditTask(null);
-          }}
+          allTasks={updatedTasks}
+          onClose={() => setEditId(null)}
+          onRefresh={refresh}
         />
       )}
     </div>

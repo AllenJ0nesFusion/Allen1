@@ -1,7 +1,7 @@
 export const HOURS_PER_DAY = 8;
 
 /** Advance a date by N working days (skipping Sat/Sun). */
-function addWorkingDays(start: Date, days: number): Date {
+export function addWorkingDays(start: Date, days: number): Date {
   const d = new Date(start);
   let remaining = days;
   while (remaining > 0) {
@@ -9,6 +9,17 @@ function addWorkingDays(start: Date, days: number): Date {
     if (d.getDay() !== 0 && d.getDay() !== 6) remaining--;
   }
   return d;
+}
+
+/** Count working days between two dates, exclusive of the start (Mon–Fri only). */
+export function workingDaysBetween(start: Date, end: Date): number {
+  const d = new Date(start);
+  let count = 0;
+  while (d < end) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
+  }
+  return count;
 }
 
 /**

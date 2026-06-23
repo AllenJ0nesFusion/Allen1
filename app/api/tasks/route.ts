@@ -1,8 +1,10 @@
 import { getDb } from '@/lib/db';
+import { ensureDependenciesTable } from '@/lib/schedule';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
   const sql = getDb();
+  await ensureDependenciesTable(sql);
   const rows = await sql`
     SELECT
       t.wbs_id, t.parent_wbs_id, t.outline_level, t.lane, t.task_name,
@@ -14,7 +16,20 @@ export async function GET() {
     GROUP BY t.wbs_id
     ORDER BY t.wbs_id
   `;
-  return NextResponse.json(rows);
+  const deps = await sql`
+    SELECT wbs_id, predecessor_wbs_id, dep_type, lag_days FROM task_dependencies
+  `;
+  const predByTask = new Map<string, unknown[]>();
+  for (const d of deps) {
+    if (!predByTask.has(d.wbs_id as string)) predByTask.set(d.wbs_id as string, []);
+    predByTask.get(d.wbs_id as string)!.push({
+      wbs_id: d.predecessor_wbs_id,
+      dep_type: d.dep_type,
+      lag_days: d.lag_days,
+    });
+  }
+  const withDeps = rows.map((r) => ({ ...r, predecessors: predByTask.get(r.wbs_id as string) ?? [] }));
+  return NextResponse.json(withDeps);
 }
 
 export async function POST(request: NextRequest) {

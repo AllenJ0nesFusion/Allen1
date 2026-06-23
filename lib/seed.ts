@@ -1663,6 +1663,14 @@ export async function seedDatabase(): Promise<void> {
       PRIMARY KEY (wbs_id, goal)
     )`;
 
+    await sql`CREATE TABLE IF NOT EXISTS task_dependencies (
+      wbs_id VARCHAR(20) REFERENCES tasks(wbs_id),
+      predecessor_wbs_id VARCHAR(20) REFERENCES tasks(wbs_id),
+      dep_type VARCHAR(2) NOT NULL DEFAULT 'FS',
+      lag_days SMALLINT NOT NULL DEFAULT 0,
+      PRIMARY KEY (wbs_id, predecessor_wbs_id)
+    )`;
+
     await sql`CREATE TABLE IF NOT EXISTS milestones (
       id BIGSERIAL PRIMARY KEY,
       type VARCHAR(40) NOT NULL,

@@ -1,4 +1,5 @@
 import { getDb } from '@/lib/db';
+import { ensureDependenciesTable, reschedule } from '@/lib/schedule';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -27,6 +28,11 @@ export async function PUT(
     WHERE wbs_id = ${id}
   `;
 
+  // A date change may push dependent tasks forward
+  if (finish_date !== undefined) {
+    await reschedule(sql);
+  }
+
   const rows = await sql`SELECT * FROM tasks WHERE wbs_id = ${id}`;
   return NextResponse.json(rows[0]);
 }
@@ -47,6 +53,8 @@ export async function DELETE(
     );
   }
 
+  await ensureDependenciesTable(sql);
+  await sql`DELETE FROM task_dependencies WHERE wbs_id = ${id} OR predecessor_wbs_id = ${id}`;
   await sql`DELETE FROM task_goals WHERE wbs_id = ${id}`;
   await sql`DELETE FROM tasks WHERE wbs_id = ${id}`;
   return NextResponse.json({ ok: true });

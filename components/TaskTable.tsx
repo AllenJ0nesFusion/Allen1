@@ -20,8 +20,17 @@ export default function TaskTable({ initialTasks }: Props) {
   const [statusFilter, setStatusFilter] = useState('All');
   const [laneFilter, setLaneFilter] = useState('All');
   const [search, setSearch] = useState('');
-  const [editTask, setEditTask] = useState<TaskRow | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  async function refresh(): Promise<TaskRow[]> {
+    const res = await fetch('/api/tasks', { cache: 'no-store' });
+    const data = await res.json() as TaskRow[];
+    setTasks(data);
+    return data;
+  }
+
+  const editTask = editId ? tasks.find((t) => t.wbs_id === editId) ?? null : null;
 
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
@@ -68,18 +77,8 @@ export default function TaskTable({ initialTasks }: Props) {
     return lanes;
   }, [tasks, filtered]);
 
-  function handleSaved(updated: TaskRow) {
-    setTasks((prev) => prev.map((t) => t.wbs_id === updated.wbs_id ? { ...t, ...updated } : t));
-    setEditTask(null);
-  }
-
-  function handleDeleted(wbsId: string) {
-    setTasks((prev) => prev.filter((t) => t.wbs_id !== wbsId));
-    setEditTask(null);
-  }
-
-  function handleCreated(created: TaskRow) {
-    setTasks((prev) => [...prev, created]);
+  async function handleCreated() {
+    await refresh();
     setAdding(false);
   }
 
@@ -161,11 +160,21 @@ export default function TaskTable({ initialTasks }: Props) {
                         {rows.map((t) => (
                           <tr
                             key={t.wbs_id}
-                            onClick={() => setEditTask(t)}
+                            onClick={() => setEditId(t.wbs_id)}
                             className="border-b border-gray-50 hover:bg-[#F4EFEF] cursor-pointer transition-colors"
                           >
                             <td className="px-4 py-2.5 text-xs text-[#404D5B] font-mono">{t.wbs_id}</td>
-                            <td className="px-4 py-2.5 text-[#2C3E50]">{t.task_name}</td>
+                            <td className="px-4 py-2.5 text-[#2C3E50]">
+                              {t.task_name}
+                              {(t.predecessors?.length ?? 0) > 0 && (
+                                <span
+                                  className="ml-1.5 text-[10px] text-[#0E4774] align-middle"
+                                  title={`Depends on ${t.predecessors!.length} task(s)`}
+                                >
+                                  🔗{t.predecessors!.length}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-2.5 text-[#404D5B] text-xs">{t.owner ?? '—'}</td>
                             <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
                             <td className="px-4 py-2.5 text-xs text-[#404D5B]">{formatDate(t.finish_date as string | null)}</td>
@@ -183,7 +192,7 @@ export default function TaskTable({ initialTasks }: Props) {
       </div>
 
       {editTask && (
-        <EditModal task={editTask} onClose={() => setEditTask(null)} onSaved={handleSaved} onDeleted={handleDeleted} />
+        <EditModal task={editTask} allTasks={tasks} onClose={() => setEditId(null)} onRefresh={refresh} />
       )}
 
       {adding && (
