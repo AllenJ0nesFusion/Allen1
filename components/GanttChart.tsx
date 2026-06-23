@@ -135,18 +135,24 @@ export default function GanttChart({ tasks }: Props) {
 
       {/* Chart wrapper: resizable label col + scrollable timeline */}
       <div className="flex rounded-lg overflow-hidden shadow-sm border border-[#E7E6E6]">
-        {/* Label column */}
-        <div className="flex-shrink-0 bg-white" style={{ width: labelW }}>
+        {/* Label column — relative + raised so header labels can span over the timeline */}
+        <div className="flex-shrink-0 bg-white relative z-20" style={{ width: labelW }}>
           {/* Header */}
           <div style={{ height: 32 }} className="border-b border-[#E7E6E6] flex items-center px-3">
             <span className="eyebrow">Task</span>
           </div>
           {rows.map((r, i) => {
             if (r.type === 'lane') return (
-              <div key={i} style={{ height: ROW_H, backgroundColor: '#0E4774' }} />
+              <div key={i} className="flex items-center px-3 font-bold text-xs text-white whitespace-nowrap pointer-events-none"
+                style={{ height: ROW_H, backgroundColor: '#0E4774' }}>
+                {r.label}
+              </div>
             );
             if (r.type === 'workstream') return (
-              <div key={i} style={{ height: ROW_H, backgroundColor: '#E7E6E6' }} />
+              <div key={i} className="flex items-center px-3 font-semibold text-xs text-[#404D5B] whitespace-nowrap pointer-events-none"
+                style={{ height: ROW_H, backgroundColor: '#E7E6E6' }}>
+                {r.label}
+              </div>
             );
             return (
               <div key={i} className="flex items-center px-3 text-xs text-[#2C3E50] truncate border-b border-[#F4EFEF] hover:bg-[#F4EFEF] cursor-pointer"
@@ -157,16 +163,18 @@ export default function GanttChart({ tasks }: Props) {
               </div>
             );
           })}
-        </div>
 
-        {/* Drag handle to resize label column */}
-        <div
-          onMouseDown={startResize}
-          className="flex-shrink-0 w-1.5 cursor-col-resize bg-[#E7E6E6] hover:bg-[#E8941A] transition-colors"
-          title="Drag to resize"
-          role="separator"
-          aria-orientation="vertical"
-        />
+          {/* Resize grip pinned to the column's right edge */}
+          <div
+            onMouseDown={startResize}
+            className="absolute top-0 right-0 h-full w-2 cursor-col-resize z-30 group"
+            title="Drag to resize"
+            role="separator"
+            aria-orientation="vertical"
+          >
+            <div className="absolute right-0 top-0 h-full w-0.5 bg-[#E7E6E6] group-hover:bg-[#E8941A] transition-colors" />
+          </div>
+        </div>
 
         {/* Timeline area */}
         <div className="flex-1 overflow-x-auto scroll-fusion">
@@ -185,14 +193,10 @@ export default function GanttChart({ tasks }: Props) {
             {/* Rows */}
             {rows.map((r, i) => {
               if (r.type === 'lane') return (
-                <div key={i} className="flex items-center" style={{ height: ROW_H, backgroundColor: '#0E4774' }}>
-                  <span className="sticky left-0 px-3 font-bold text-xs text-white whitespace-nowrap">{r.label}</span>
-                </div>
+                <div key={i} style={{ height: ROW_H, backgroundColor: '#0E4774' }} />
               );
               if (r.type === 'workstream') return (
-                <div key={i} className="flex items-center" style={{ height: ROW_H, backgroundColor: '#E7E6E6' }}>
-                  <span className="sticky left-0 px-3 font-semibold text-xs text-[#404D5B] whitespace-nowrap">{r.label}</span>
-                </div>
+                <div key={i} style={{ height: ROW_H, backgroundColor: '#E7E6E6' }} />
               );
 
               // Task row
