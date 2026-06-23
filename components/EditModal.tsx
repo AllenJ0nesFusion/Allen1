@@ -1,21 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { calcFinish, HOURS_PER_DAY } from '@/lib/dateUtils';
 
 const STATUS_OPTIONS = [
   'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
 ];
-
-const HOURS_PER_DAY = 8;
-
-// finish = start + ceil(effort / hours-per-day) calendar days (inclusive of start day)
-function calcFinish(startDate: string | null, effortHrs: number): string | null {
-  if (!startDate || !effortHrs || effortHrs <= 0) return null;
-  const days = Math.ceil(effortHrs / HOURS_PER_DAY);
-  const d = new Date(startDate);
-  d.setDate(d.getDate() + Math.max(0, days - 1));
-  return d.toISOString().split('T')[0];
-}
 
 export interface TaskRow {
   wbs_id: string;
@@ -73,7 +63,7 @@ export default function EditModal({ task, onClose, onSaved, onDeleted }: Props) 
         notes,
         finish_date: finishDate || null,
         effort_hrs: effortHrs === '' ? null : Number(effortHrs),
-        duration_days: effortHrs ? Math.ceil(Number(effortHrs) / HOURS_PER_DAY) : null,
+        duration_days: effortHrs ? Math.ceil(Number(effortHrs) / HOURS_PER_DAY) : null,  // calendar-day span (not working days)
       }),
     });
     const updated = await res.json() as TaskRow;

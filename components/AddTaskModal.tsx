@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { type TaskRow } from './EditModal';
+import { calcFinish, HOURS_PER_DAY } from '@/lib/dateUtils';
 
 const STATUS_OPTIONS = [
   'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
@@ -20,7 +21,6 @@ interface Props {
 }
 
 export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
-  // Workstreams are the outline_level 2 rows — a new task hangs under one of them
   const workstreams: Workstream[] = tasks
     .filter((t) => t.outline_level === 2)
     .map((t) => ({ wbs_id: t.wbs_id, lane: t.lane, task_name: t.task_name.trim() }));
@@ -30,10 +30,32 @@ export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
   const [status, setStatus] = useState('Not Started');
   const [startDate, setStartDate] = useState('');
   const [finishDate, setFinishDate] = useState('');
+  const [autoFinish, setAutoFinish] = useState(false);
   const [effortHrs, setEffortHrs] = useState('');
   const [owner, setOwner] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  function handleEffortChange(value: string) {
+    setEffortHrs(value);
+    const next = calcFinish(startDate, Number(value));
+    if (next) {
+      setFinishDate(next);
+      setAutoFinish(true);
+    }
+  }
+
+  function handleStartChange(value: string) {
+    setStartDate(value);
+    // Re-run auto-calc if effort is already set
+    if (effortHrs) {
+      const next = calcFinish(value, Number(effortHrs));
+      if (next) {
+        setFinishDate(next);
+        setAutoFinish(true);
+      }
+    }
+  }
 
   async function handleCreate() {
     if (!parentWbsId || !taskName.trim()) {
@@ -68,6 +90,8 @@ export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
 
   const fieldClass =
     'w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E4774]';
+
+  const workDays = effortHrs ? Math.ceil(Number(effortHrs) / HOURS_PER_DAY) : 0;
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -104,32 +128,49 @@ export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-[#404D5B] mb-1">Start date</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={fieldClass} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[#404D5B] mb-1">Finish date</label>
-              <input type="date" value={finishDate} onChange={(e) => setFinishDate(e.target.value)} className={fieldClass} />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-[#404D5B] mb-1">Effort (hrs)</label>
+            <input
+              type="number"
+              min="0"
+              value={effortHrs}
+              onChange={(e) => handleEffortChange(e.target.value)}
+              className={fieldClass}
+            />
+            {effortHrs && !startDate && (
+              <p className="text-xs text-[#404D5B] mt-1">Set a start date to auto-calculate finish.</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-[#404D5B] mb-1">Effort (hrs)</label>
+              <label className="block text-xs font-medium text-[#404D5B] mb-1">Start date</label>
               <input
-                type="number"
-                min="0"
-                value={effortHrs}
-                onChange={(e) => setEffortHrs(e.target.value)}
+                type="date"
+                value={startDate}
+                onChange={(e) => handleStartChange(e.target.value)}
                 className={fieldClass}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#404D5B] mb-1">Owner</label>
-              <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} className={fieldClass} />
+              <label className="block text-xs font-medium text-[#404D5B] mb-1">Finish date</label>
+              <input
+                type="date"
+                value={finishDate}
+                onChange={(e) => { setFinishDate(e.target.value); setAutoFinish(false); }}
+                className={fieldClass}
+              />
+              {autoFinish && workDays > 0 && (
+                <p className="text-xs text-[#E8941A] mt-1">
+                  Auto-set ({workDays} working day{workDays === 1 ? '' : 's'} at {HOURS_PER_DAY} hrs/day). Edit to override.
+                </p>
+              )}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#404D5B] mb-1">Owner</label>
+            <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} className={fieldClass} />
           </div>
         </div>
 
