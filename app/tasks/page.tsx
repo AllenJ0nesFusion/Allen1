@@ -1,15 +1,15 @@
 import TaskTable from '@/components/TaskTable';
 import { type TaskRow } from '@/components/EditModal';
 
-async function getTasks(): Promise<TaskRow[]> {
+async function getTasksData(): Promise<{ tasks: TaskRow[]; projectEnd: string | null }> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
   const res = await fetch(`${baseUrl}/api/tasks`, { cache: 'no-store' });
-  if (!res.ok) return [];
-  return res.json() as Promise<TaskRow[]>;
+  if (!res.ok) return { tasks: [], projectEnd: null };
+  return res.json() as Promise<{ tasks: TaskRow[]; projectEnd: string | null }>;
 }
 
 export default async function TasksPage() {
-  const tasks = await getTasks();
+  const { tasks } = await getTasksData();
   return (
     <div>
       <h1 className="page-title text-2xl mb-1">Tasks</h1>

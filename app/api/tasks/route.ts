@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { ensureDependenciesTable } from '@/lib/schedule';
+import { ensureDependenciesTable, computeCriticalPath, type DepRow } from '@/lib/schedule';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
@@ -19,17 +19,26 @@ export async function GET() {
   const deps = await sql`
     SELECT wbs_id, predecessor_wbs_id, dep_type, lag_days FROM task_dependencies
   `;
+  const depsTyped = deps as DepRow[];
   const predByTask = new Map<string, unknown[]>();
-  for (const d of deps) {
-    if (!predByTask.has(d.wbs_id as string)) predByTask.set(d.wbs_id as string, []);
-    predByTask.get(d.wbs_id as string)!.push({
-      wbs_id: d.predecessor_wbs_id,
-      dep_type: d.dep_type,
-      lag_days: d.lag_days,
-    });
+  for (const d of depsTyped) {
+    if (!predByTask.has(d.wbs_id)) predByTask.set(d.wbs_id, []);
+    predByTask.get(d.wbs_id)!.push({ wbs_id: d.predecessor_wbs_id, dep_type: d.dep_type, lag_days: d.lag_days });
   }
-  const withDeps = rows.map((r) => ({ ...r, predecessors: predByTask.get(r.wbs_id as string) ?? [] }));
-  return NextResponse.json(withDeps);
+
+  const taskDates = rows.map((r) => ({
+    wbs_id: r.wbs_id as string,
+    start_date: r.start_date as string | null,
+    finish_date: r.finish_date as string | null,
+  }));
+  const { critical, projectEnd } = computeCriticalPath(taskDates, depsTyped);
+
+  const withDeps = rows.map((r) => ({
+    ...r,
+    predecessors: predByTask.get(r.wbs_id as string) ?? [],
+    is_critical: critical.has(r.wbs_id as string),
+  }));
+  return NextResponse.json({ tasks: withDeps, projectEnd });
 }
 
 export async function POST(request: NextRequest) {

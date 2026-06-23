@@ -1,5 +1,5 @@
 import { type NeonQueryFunction } from '@neondatabase/serverless';
-import { addWorkingDays, workingDaysBetween } from './dateUtils';
+import { addWorkingDays, subtractWorkingDays, workingDaysBetween } from './dateUtils';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -119,6 +119,113 @@ export function cascadeForward(tasks: TaskDates[], deps: DepRow[]): TaskDates[] 
   }
 
   return changed;
+}
+
+/**
+ * Classic CPM (Critical Path Method) — forward + backward pass over FS links.
+ *
+ * Forward pass:  EF[t] = max over predecessors of (EF[pred] + lag) + span
+ * Backward pass: LS[t] = min over successors of (LS[succ] - lag) - span
+ * Float = LF - EF  (in working days); float == 0 → task is on the critical path.
+ *
+ * Only tasks that have both start_date and finish_date participate.
+ * Returns the set of wbs_ids on the critical path, plus the projected project end date.
+ */
+export function computeCriticalPath(
+  tasks: TaskDates[],
+  deps: DepRow[]
+): { critical: Set<string>; projectEnd: string | null } {
+  const dated = tasks.filter((t) => t.start_date && t.finish_date);
+  if (dated.length === 0) return { critical: new Set(), projectEnd: null };
+
+  const byId = new Map(dated.map((t) => [t.wbs_id, t]));
+
+  // Build FS-only adjacency maps
+  const successors = new Map<string, DepRow[]>();
+  const predecessors = new Map<string, DepRow[]>();
+  const indeg = new Map<string, number>(dated.map((t) => [t.wbs_id, 0]));
+
+  for (const d of deps) {
+    if (d.dep_type !== 'FS') continue;
+    if (!byId.has(d.wbs_id) || !byId.has(d.predecessor_wbs_id)) continue;
+    if (!successors.has(d.predecessor_wbs_id)) successors.set(d.predecessor_wbs_id, []);
+    successors.get(d.predecessor_wbs_id)!.push(d);
+    if (!predecessors.has(d.wbs_id)) predecessors.set(d.wbs_id, []);
+    predecessors.get(d.wbs_id)!.push(d);
+    indeg.set(d.wbs_id, (indeg.get(d.wbs_id) ?? 0) + 1);
+  }
+
+  // Kahn topological order
+  const queue = [...indeg.entries()].filter(([, n]) => n === 0).map(([id]) => id);
+  const order: string[] = [];
+  const deg = new Map(indeg);
+  while (queue.length) {
+    const cur = queue.shift()!;
+    order.push(cur);
+    for (const d of successors.get(cur) ?? []) {
+      deg.set(d.wbs_id, (deg.get(d.wbs_id) ?? 0) - 1);
+      if (deg.get(d.wbs_id) === 0) queue.push(d.wbs_id);
+    }
+  }
+
+  // Working-day span of each task (inclusive: 1 day if start == finish)
+  const span = new Map<string, number>();
+  for (const t of dated) {
+    span.set(t.wbs_id, Math.max(1, workingDaysBetween(new Date(t.start_date!), new Date(t.finish_date!)) + 1));
+  }
+
+  // ── Forward pass ──────────────────────────────────────────────────────────────
+  // EF[t] = working-day date when task can earliest finish
+  const ef = new Map<string, Date>();
+  const es = new Map<string, Date>();
+
+  for (const id of order) {
+    const t = byId.get(id)!;
+    let earlyStart = new Date(t.start_date!);
+    for (const d of predecessors.get(id) ?? []) {
+      const predEF = ef.get(d.predecessor_wbs_id);
+      if (!predEF) continue;
+      const candidate = addWorkingDays(predEF, d.lag_days ?? 0); // EF is inclusive, so no extra +1
+      if (candidate > earlyStart) earlyStart = candidate;
+    }
+    es.set(id, earlyStart);
+    ef.set(id, addWorkingDays(earlyStart, span.get(id)! - 1));
+  }
+
+  // Project end = latest EF among all dated tasks
+  let projectEndDate = new Date(0);
+  for (const [, d] of ef) {
+    if (d > projectEndDate) projectEndDate = d;
+  }
+  const projectEnd = projectEndDate.getTime() === 0 ? null : projectEndDate.toISOString().split('T')[0];
+
+  // ── Backward pass ─────────────────────────────────────────────────────────────
+  // LF[t] = latest working-day date task may finish without pushing project end
+  const lf = new Map<string, Date>();
+  const ls = new Map<string, Date>();
+
+  for (const id of [...order].reverse()) {
+    let lateFinish = projectEndDate;
+    for (const d of successors.get(id) ?? []) {
+      const succLS = ls.get(d.wbs_id);
+      if (!succLS) continue;
+      const candidate = subtractWorkingDays(succLS, d.lag_days ?? 0);
+      if (candidate < lateFinish) lateFinish = candidate;
+    }
+    lf.set(id, lateFinish);
+    ls.set(id, subtractWorkingDays(lateFinish, span.get(id)! - 1));
+  }
+
+  // Float = LF - EF in working days; 0 → critical
+  const critical = new Set<string>();
+  for (const id of order) {
+    const earlyFinish = ef.get(id)!;
+    const lateFinish = lf.get(id)!;
+    const floatDays = workingDaysBetween(earlyFinish, lateFinish);
+    if (floatDays === 0) critical.add(id);
+  }
+
+  return { critical, projectEnd };
 }
 
 /** Load deps, run the cascade, and persist any changed task dates. Returns changed wbs_ids. */

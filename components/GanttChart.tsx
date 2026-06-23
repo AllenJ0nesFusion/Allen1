@@ -71,7 +71,7 @@ export default function GanttChart({ tasks }: Props) {
 
   async function refresh(): Promise<TaskRow[]> {
     const res = await fetch('/api/tasks', { cache: 'no-store' });
-    const data = await res.json() as TaskRow[];
+    const { tasks: data } = await res.json() as { tasks: TaskRow[]; projectEnd: string | null };
     setUpdatedTasks(data);
     return data;
   }
@@ -179,6 +179,10 @@ export default function GanttChart({ tasks }: Props) {
             {s}
           </span>
         ))}
+        <span className="flex items-center gap-1.5 text-xs text-[#C00000] font-medium border-l border-gray-200 pl-4">
+          <span className="w-3 h-3 rounded-sm inline-block border-2 border-[#C00000]" />
+          Critical path
+        </span>
       </div>
 
       {/* Chart wrapper: resizable label col + scrollable timeline */}
@@ -301,7 +305,7 @@ export default function GanttChart({ tasks }: Props) {
                   {/* Task bar */}
                   {hasBar && (
                     <div
-                      className="absolute top-1/2 -translate-y-1/2 rounded-sm cursor-pointer flex items-center px-1.5 overflow-hidden transition-opacity hover:opacity-80"
+                      className="absolute top-1/2 -translate-y-1/2 cursor-pointer flex items-center px-1.5 overflow-hidden transition-opacity hover:opacity-80"
                       style={{
                         left, width,
                         height: 18,
@@ -309,8 +313,11 @@ export default function GanttChart({ tasks }: Props) {
                         color: barStyle.text,
                         fontSize: 10,
                         minWidth: 4,
+                        borderRadius: t.is_critical ? 2 : 2,
+                        outline: t.is_critical ? '2px solid #C00000' : undefined,
+                        outlineOffset: t.is_critical ? '1px' : undefined,
                       }}
-                      title={`${t.wbs_id} — ${t.task_name.trim()} (${t.status})`}
+                      title={`${t.wbs_id} — ${t.task_name.trim()} (${t.status})${t.is_critical ? ' ⚠ Critical path' : ''}`}
                       onClick={() => setEditId(t.wbs_id)}
                     >
                       <span className="truncate whitespace-nowrap">{t.task_name.trim()}</span>

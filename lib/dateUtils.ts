@@ -22,6 +22,17 @@ export function workingDaysBetween(start: Date, end: Date): number {
   return count;
 }
 
+/** Step back N working days (Mon–Fri only). */
+export function subtractWorkingDays(start: Date, days: number): Date {
+  const d = new Date(start);
+  let remaining = days;
+  while (remaining > 0) {
+    d.setDate(d.getDate() - 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) remaining--;
+  }
+  return d;
+}
+
 /**
  * Compute finish date from a start date + effort hours.
  * Duration = ceil(effort / HOURS_PER_DAY) working days, inclusive of start.

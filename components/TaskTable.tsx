@@ -25,7 +25,7 @@ export default function TaskTable({ initialTasks }: Props) {
 
   async function refresh(): Promise<TaskRow[]> {
     const res = await fetch('/api/tasks', { cache: 'no-store' });
-    const data = await res.json() as TaskRow[];
+    const { tasks: data } = await res.json() as { tasks: TaskRow[]; projectEnd: string | null };
     setTasks(data);
     return data;
   }
@@ -130,6 +130,7 @@ export default function TaskTable({ initialTasks }: Props) {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Finish</th>
               <th className="px-4 py-3">Effort</th>
+              <th className="px-4 py-3 text-[#C00000]" title="Critical path task">CP</th>
             </tr>
           </thead>
           <tbody>
@@ -140,7 +141,7 @@ export default function TaskTable({ initialTasks }: Props) {
                 <Fragment key={`lane-${lane}`}>
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-2 text-sm font-bold text-white"
                       style={{ backgroundColor: '#0E4774' }}
                     >
@@ -179,6 +180,11 @@ export default function TaskTable({ initialTasks }: Props) {
                             <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
                             <td className="px-4 py-2.5 text-xs text-[#404D5B]">{formatDate(t.finish_date as string | null)}</td>
                             <td className="px-4 py-2.5 text-xs text-[#404D5B]">{t.effort_hrs != null ? `${t.effort_hrs}h` : '—'}</td>
+                            <td className="px-4 py-2.5">
+                              {t.is_critical && (
+                                <span className="text-[10px] font-bold text-[#C00000]" title="On the critical path — any delay pushes the project end date">●</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </Fragment>

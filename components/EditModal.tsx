@@ -28,6 +28,7 @@ export interface TaskRow {
   notes: string | null;
   goals: string[];
   predecessors?: Predecessor[];
+  is_critical?: boolean;
   updated_at: string | null;
 }
 
