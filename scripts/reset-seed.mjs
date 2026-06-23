@@ -14,10 +14,21 @@ if (!match) {
 
 const sql = neon(match[1].trim());
 
-try {
-  await sql`DELETE FROM project_metadata WHERE id = 1`;
-  console.log('✓ Seed flag cleared. Restart npm run dev to re-seed.');
-} catch (e) {
-  console.log('Table does not exist yet — no action needed. Just restart npm run dev.');
+async function drop(label, fn) {
+  try {
+    await fn();
+    console.log(`  cleared ${label}`);
+  } catch {
+    console.log(`  ${label} not present (ok)`);
+  }
 }
+
+// Order matters: task_goals references tasks
+await drop('task_goals', () => sql`DELETE FROM task_goals`);
+await drop('tasks', () => sql`DELETE FROM tasks`);
+await drop('milestones', () => sql`DELETE FROM milestones`);
+await drop('capacity_weeks', () => sql`DELETE FROM capacity_weeks`);
+await drop('project_metadata', () => sql`DELETE FROM project_metadata`);
+
+console.log('✓ All data cleared. Restart npm run dev to re-seed with fresh data.');
 process.exit(0);
