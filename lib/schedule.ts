@@ -36,6 +36,17 @@ export async function ensurePercentColumn(sql: Sql): Promise<void> {
   }
 }
 
+/** Add the assigned_user_id column if missing. */
+export async function ensureAssignedUserColumn(sql: Sql): Promise<void> {
+  const existing = await sql`
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'tasks' AND column_name = 'assigned_user_id'
+  `;
+  if (existing.length === 0) {
+    await sql`ALTER TABLE tasks ADD COLUMN assigned_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL`;
+  }
+}
+
 /**
  * Would adding edge (wbs_id depends on predecessor_wbs_id) create a cycle?
  * A cycle exists if predecessor is already reachable from wbs_id via existing edges.

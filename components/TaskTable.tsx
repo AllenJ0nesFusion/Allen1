@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, Fragment, useEffect } from 'react';
 import StatusPill from './StatusPill';
 import EditModal, { type TaskRow } from './EditModal';
 import AddTaskModal from './AddTaskModal';
@@ -20,8 +20,16 @@ export default function TaskTable({ initialTasks }: Props) {
   const [statusFilter, setStatusFilter] = useState('All');
   const [laneFilter, setLaneFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const [myTasksOnly, setMyTasksOnly] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me').then((r) => r.ok ? r.json() : null).then((u) => {
+      if (u?.user?.userId) setCurrentUserId(u.user.userId);
+    });
+  }, []);
 
   async function refresh(): Promise<TaskRow[]> {
     const res = await fetch('/api/tasks', { cache: 'no-store' });
@@ -37,9 +45,10 @@ export default function TaskTable({ initialTasks }: Props) {
       if (laneFilter !== 'All' && !t.lane.includes(laneFilter)) return false;
       if (statusFilter !== 'All' && t.status !== statusFilter) return false;
       if (search && !t.task_name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (myTasksOnly && currentUserId && t.assigned_user_id !== currentUserId) return false;
       return true;
     });
-  }, [tasks, statusFilter, laneFilter, search]);
+  }, [tasks, statusFilter, laneFilter, search, myTasksOnly, currentUserId]);
 
   // Group by Lane → workstream (outline_level 2) → tasks (outline_level 3)
   const grouped = useMemo(() => {
@@ -110,6 +119,17 @@ export default function TaskTable({ initialTasks }: Props) {
         >
           {STATUS_OPTIONS.map((o) => <option key={o}>{o}</option>)}
         </select>
+        {currentUserId && (
+          <button
+            onClick={() => setMyTasksOnly((v) => !v)}
+            className="px-3 py-1.5 text-sm font-medium rounded border transition-colors"
+            style={myTasksOnly
+              ? { backgroundColor: '#0E4774', color: '#fff', borderColor: '#0E4774' }
+              : { backgroundColor: 'transparent', color: '#0E4774', borderColor: '#0E4774' }}
+          >
+            My Tasks
+          </button>
+        )}
         <button
           onClick={() => setAdding(true)}
           className="ml-auto px-4 py-1.5 text-sm font-semibold text-white rounded transition-all hover:shadow-md"
@@ -177,7 +197,9 @@ export default function TaskTable({ initialTasks }: Props) {
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-2.5 text-[#404D5B] text-xs">{t.owner ?? '—'}</td>
+                            <td className="px-4 py-2.5 text-[#404D5B] text-xs">
+                              {t.assigned_user_name ?? t.assigned_user_email ?? t.owner ?? '—'}
+                            </td>
                             <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2 w-28">

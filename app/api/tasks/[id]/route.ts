@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { ensureDependenciesTable, ensurePercentColumn, reschedule } from '@/lib/schedule';
+import { ensureDependenciesTable, ensurePercentColumn, ensureAssignedUserColumn, reschedule } from '@/lib/schedule';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -8,6 +8,7 @@ export async function PUT(
 ) {
   const sql = getDb();
   await ensurePercentColumn(sql);
+  await ensureAssignedUserColumn(sql);
   const { id } = await params;
   const body = await request.json() as {
     status?: string;
@@ -16,9 +17,17 @@ export async function PUT(
     effort_hrs?: number | null;
     duration_days?: number | null;
     percent_complete?: number | null;
+    assigned_user_id?: number | null;
   };
-  const { status, notes, finish_date, effort_hrs, duration_days, percent_complete } = body;
+  const { status, notes, finish_date, effort_hrs, duration_days, percent_complete, assigned_user_id } = body;
   const pct = percent_complete == null ? null : Math.max(0, Math.min(100, Math.round(percent_complete)));
+
+  // Read current row, merge, write back (neon driver can't compose sql fragments)
+  const cur = await sql`SELECT * FROM tasks WHERE wbs_id = ${id}`;
+  if (cur.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const c = cur[0];
+
+  const newAssignee = assigned_user_id !== undefined ? assigned_user_id : (c.assigned_user_id ?? null);
 
   await sql`
     UPDATE tasks SET
@@ -28,6 +37,7 @@ export async function PUT(
       effort_hrs = COALESCE(${effort_hrs ?? null}, effort_hrs),
       duration_days = COALESCE(${duration_days ?? null}, duration_days),
       percent_complete = COALESCE(${pct}, percent_complete),
+      assigned_user_id = ${newAssignee},
       updated_at = NOW()
     WHERE wbs_id = ${id}
   `;

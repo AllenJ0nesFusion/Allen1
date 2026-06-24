@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { calcFinish, HOURS_PER_DAY } from '@/lib/dateUtils';
 
+interface UserOption { id: number; name: string; email: string }
+
 const STATUS_OPTIONS = [
   'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
 ];
@@ -31,6 +33,9 @@ export interface TaskRow {
   predecessors?: Predecessor[];
   is_critical?: boolean;
   updated_at: string | null;
+  assigned_user_id?: number | null;
+  assigned_user_name?: string | null;
+  assigned_user_email?: string | null;
 }
 
 interface Props {
@@ -49,12 +54,18 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
   const [effortHrs, setEffortHrs] = useState(task.effort_hrs != null ? String(task.effort_hrs) : '');
   const [autoFinish, setAutoFinish] = useState(false);
   const [notes, setNotes] = useState(task.notes ?? '');
+  const [assignedUserId, setAssignedUserId] = useState<string>(task.assigned_user_id ? String(task.assigned_user_id) : '');
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
   const [newPred, setNewPred] = useState('');
   const [linking, setLinking] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/users/options').then((r) => r.ok ? r.json() : []).then(setUsers);
+  }, []);
 
   // Keep the finish field in sync when a cascade (from a dependency change) moves this task,
   // unless the user has manually edited the field this session.
@@ -109,6 +120,7 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
         effort_hrs: effortHrs === '' ? null : Number(effortHrs),
         duration_days: effortHrs ? Math.ceil(Number(effortHrs) / HOURS_PER_DAY) : null,
         percent_complete: percent,
+        assigned_user_id: assignedUserId ? Number(assignedUserId) : null,
       }),
     });
     await onRefresh();
@@ -277,6 +289,14 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
             <p className="text-[11px] text-[#404D5B] mt-1">
               Finish-to-start: if this task would start before a predecessor finishes, it’s pushed forward automatically.
             </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#404D5B] mb-1">Assignee</label>
+            <select value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)} className={fieldClass}>
+              <option value="">Unassigned</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+            </select>
           </div>
 
           <div>

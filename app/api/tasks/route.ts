@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { ensureDependenciesTable, ensurePercentColumn, computeCriticalPath, type DepRow } from '@/lib/schedule';
+import { ensureDependenciesTable, ensurePercentColumn, ensureAssignedUserColumn, computeCriticalPath, type DepRow } from '@/lib/schedule';
 import { ensureGoalsSchema, goalIdForLane } from '@/lib/goals';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -7,15 +7,20 @@ export async function GET() {
   const sql = getDb();
   await ensureDependenciesTable(sql);
   await ensurePercentColumn(sql);
+  await ensureAssignedUserColumn(sql);
   const rows = await sql`
     SELECT
       t.wbs_id, t.parent_wbs_id, t.outline_level, t.lane, t.task_name,
       t.start_date, t.finish_date, t.duration_days, t.effort_hrs,
       t.owner, t.status, t.percent_complete, t.notes, t.updated_at,
+      t.assigned_user_id,
+      u.name AS assigned_user_name,
+      u.email AS assigned_user_email,
       COALESCE(array_agg(tg.goal) FILTER (WHERE tg.goal IS NOT NULL), '{}') AS goals
     FROM tasks t
     LEFT JOIN task_goals tg ON t.wbs_id = tg.wbs_id
-    GROUP BY t.wbs_id
+    LEFT JOIN users u ON t.assigned_user_id = u.id
+    GROUP BY t.wbs_id, u.name, u.email
     ORDER BY t.wbs_id
   `;
   const deps = await sql`
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
     finish_date?: string | null;
     effort_hrs?: number | null;
     owner?: string | null;
+    assigned_user_id?: number | null;
   };
 
   const { parent_wbs_id, task_name } = body;
@@ -84,16 +90,18 @@ export async function POST(request: NextRequest) {
   const finish_date = body.finish_date || null;
   const effort_hrs = body.effort_hrs ?? null;
   const owner = body.owner?.trim() || null;
+  const assigned_user_id = body.assigned_user_id ?? null;
 
   // Link the new task to the goal that owns its lane (so rollups stay correct)
   await ensureGoalsSchema(sql);
   const goalId = await goalIdForLane(sql, lane);
+  await ensureAssignedUserColumn(sql);
 
   await sql`
-    INSERT INTO tasks (wbs_id, parent_wbs_id, outline_level, lane, task_name, start_date, finish_date, effort_hrs, owner, status, goal_id)
+    INSERT INTO tasks (wbs_id, parent_wbs_id, outline_level, lane, task_name, start_date, finish_date, effort_hrs, owner, status, goal_id, assigned_user_id)
     VALUES (
       ${newWbsId}, ${parent_wbs_id}, 3, ${lane}, ${task_name.trim()},
-      ${start_date}::date, ${finish_date}::date, ${effort_hrs}, ${owner}, ${status}, ${goalId}
+      ${start_date}::date, ${finish_date}::date, ${effort_hrs}, ${owner}, ${status}, ${goalId}, ${assigned_user_id}
     )
   `;
 

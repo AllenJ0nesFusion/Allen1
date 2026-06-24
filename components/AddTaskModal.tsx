@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type TaskRow } from './EditModal';
 import { calcFinish, HOURS_PER_DAY } from '@/lib/dateUtils';
+
+interface UserOption { id: number; name: string; email: string }
 
 const STATUS_OPTIONS = [
   'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
@@ -32,9 +34,14 @@ export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
   const [finishDate, setFinishDate] = useState('');
   const [autoFinish, setAutoFinish] = useState(false);
   const [effortHrs, setEffortHrs] = useState('');
-  const [owner, setOwner] = useState('');
+  const [assignedUserId, setAssignedUserId] = useState('');
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/users/options').then((r) => r.ok ? r.json() : []).then(setUsers);
+  }, []);
 
   function handleEffortChange(value: string) {
     setEffortHrs(value);
@@ -74,7 +81,7 @@ export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
         start_date: startDate || null,
         finish_date: finishDate || null,
         effort_hrs: effortHrs ? Number(effortHrs) : null,
-        owner: owner || null,
+        assigned_user_id: assignedUserId ? Number(assignedUserId) : null,
       }),
     });
     if (!res.ok) {
@@ -169,8 +176,11 @@ export default function AddTaskModal({ tasks, onClose, onCreated }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#404D5B] mb-1">Owner</label>
-            <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} className={fieldClass} />
+            <label className="block text-xs font-medium text-[#404D5B] mb-1">Assignee</label>
+            <select value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)} className={fieldClass}>
+              <option value="">Unassigned</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+            </select>
           </div>
         </div>
 
