@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db';
 import { ensurePercentColumn } from '@/lib/schedule';
+import { ensureGoalsSchema } from '@/lib/goals';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -76,6 +77,20 @@ export async function GET() {
     WHERE available_hrs - lane1_planned - lane2_planned < 0
   `;
 
+  // Goal health cards for dashboard
+  await ensureGoalsSchema(sql);
+  const goalHealth = await sql`
+    SELECT
+      g.id, g.name, g.health, g.target_date,
+      u.name AS owner_name, u.email AS owner_email,
+      COALESCE(ROUND(AVG(t.percent_complete) FILTER (WHERE t.outline_level = 3)), 0) AS pct
+    FROM goals g
+    LEFT JOIN tasks t ON t.goal_id = g.id
+    LEFT JOIN users u ON u.id = g.owner_user_id
+    GROUP BY g.id, u.name, u.email
+    ORDER BY g.sort_order NULLS LAST, g.id
+  `;
+
   return NextResponse.json({
     laneProgress,
     statusBreakdown,
@@ -83,5 +98,6 @@ export async function GET() {
     milestones,
     currentWeek: fallbackWeek[0] ?? null,
     overloadedWeeks: Number(overloaded[0]?.count ?? 0),
+    goalHealth,
   });
 }
