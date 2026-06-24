@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 const HEALTH_ORDER = ['Off Track', 'At Risk', 'On Track', 'Not Started'] as const;
 const HEALTH_COLOR: Record<string, string> = {
@@ -43,7 +42,6 @@ function daysUntil(d: string | null): number | null {
 }
 
 export default function PortfolioView() {
-  const router = useRouter();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('health');
@@ -175,7 +173,7 @@ export default function PortfolioView() {
               const du = daysUntil(g.target_date);
               const overdue = du !== null && du < 0 && pct < 100;
               return (
-                <tr key={g.id} onClick={() => router.push(`/goals?goal=${g.id}`)} className="border-b border-gray-50 hover:bg-[#F4EFEF] transition-colors cursor-pointer">
+                <tr key={g.id} className="border-b border-gray-50 hover:bg-[#F4EFEF] transition-colors">
                   <td className="px-4 py-3">
                     <p className="text-[#2C3E50] font-medium">{g.name}</p>
                     {g.description && <p className="text-xs text-[#404D5B] mt-0.5 line-clamp-1">{g.description}</p>}

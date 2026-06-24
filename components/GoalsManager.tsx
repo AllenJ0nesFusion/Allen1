@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import CheckinModal from './CheckinModal';
 
 const HEALTH = ['On Track', 'At Risk', 'Off Track', 'Not Started'] as const;
@@ -43,10 +42,6 @@ function fmtWeekShort(d: string | null | undefined) {
 }
 
 export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
-  const searchParams = useSearchParams();
-  const highlightId = searchParams.get('goal') ? Number(searchParams.get('goal')) : null;
-  const highlightRef = useRef<HTMLDivElement | null>(null);
-
   const [goals, setGoals] = useState<Goal[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,12 +76,6 @@ export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
   }
   useEffect(() => { load(); }, []);
 
-  useEffect(() => {
-    if (highlightRef.current) {
-      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [goals, highlightId]);
-
   if (loading) return <p className="text-sm text-[#404D5B]">Loading goals…</p>;
 
   return (
@@ -105,11 +94,7 @@ export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {goals.map((g) => (
-          <div
-            key={g.id}
-            ref={g.id === highlightId ? highlightRef : null}
-            className={`card p-5 transition-all ${g.id === highlightId ? 'ring-2 ring-[#0E4774]' : ''}`}
-          >
+          <div key={g.id} className="card p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-sm font-bold text-[#0E4774] truncate">{g.name}</h2>

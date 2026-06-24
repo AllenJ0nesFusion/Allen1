@@ -5,13 +5,6 @@ import { calcFinish, HOURS_PER_DAY } from '@/lib/dateUtils';
 
 interface UserOption { id: number; name: string; email: string }
 
-interface Comment { id: number; author_name: string; body: string; created_at: string }
-interface StatusHistoryEntry { id: number; from_status: string | null; to_status: string; changed_by_name: string; changed_at: string }
-
-function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
 const STATUS_OPTIONS = [
   'Not Started', 'In Progress', 'Complete', 'Waiting', 'Blocked', 'Decision Required', 'Contingent',
 ];
@@ -63,10 +56,6 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
   const [notes, setNotes] = useState(task.notes ?? '');
   const [assignedUserId, setAssignedUserId] = useState<string>(task.assigned_user_id ? String(task.assigned_user_id) : '');
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentBody, setCommentBody] = useState('');
-  const [postingComment, setPostingComment] = useState(false);
-  const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -76,26 +65,7 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
 
   useEffect(() => {
     fetch('/api/users/options').then((r) => r.ok ? r.json() : []).then(setUsers);
-    const enc = encodeURIComponent(task.wbs_id);
-    Promise.all([
-      fetch(`/api/tasks/${enc}/comments`).then((r) => r.ok ? r.json() : []),
-      fetch(`/api/tasks/${enc}/status-history`).then((r) => r.ok ? r.json() : []),
-    ]).then(([c, h]) => { setComments(c); setStatusHistory(h); });
-  }, [task.wbs_id]);
-
-  async function postComment() {
-    if (!commentBody.trim()) return;
-    setPostingComment(true);
-    await fetch(`/api/tasks/${encodeURIComponent(task.wbs_id)}/comments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: commentBody.trim() }),
-    });
-    const fresh = await fetch(`/api/tasks/${encodeURIComponent(task.wbs_id)}/comments`).then((r) => r.json()) as Comment[];
-    setComments(fresh);
-    setCommentBody('');
-    setPostingComment(false);
-  }
+  }, []);
 
   // Keep the finish field in sync when a cascade (from a dependency change) moves this task,
   // unless the user has manually edited the field this session.
@@ -338,60 +308,6 @@ export default function EditModal({ task, allTasks, onClose, onRefresh }: Props)
               className={`${fieldClass} resize-none`}
             />
           </div>
-
-          {/* Comments */}
-          <div>
-            <label className="block text-xs font-semibold text-[#0E4774] mb-2">Comments</label>
-            {comments.length > 0 && (
-              <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
-                {comments.map((c) => (
-                  <div key={c.id} className="bg-[#F4EFEF] rounded px-3 py-2">
-                    <div className="flex items-center justify-between text-[11px] text-[#404D5B] mb-0.5">
-                      <span className="font-semibold">{c.author_name}</span>
-                      <span className="tnum">{fmtDateTime(c.created_at)}</span>
-                    </div>
-                    <p className="text-xs text-[#2C3E50] whitespace-pre-wrap">{c.body}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <textarea
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                rows={2}
-                placeholder="Add a comment…"
-                className={`${fieldClass} resize-none flex-1`}
-              />
-              <button
-                onClick={postComment}
-                disabled={postingComment || !commentBody.trim()}
-                className="px-3 py-2 text-sm font-medium text-white rounded shrink-0 self-end disabled:opacity-50"
-                style={{ backgroundColor: '#0E4774' }}
-              >
-                {postingComment ? '…' : 'Post'}
-              </button>
-            </div>
-          </div>
-
-          {/* Status history */}
-          {statusHistory.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-[#0E4774] mb-2">Status history</label>
-              <ol className="relative border-l border-gray-200 space-y-2 pl-4">
-                {statusHistory.map((h) => (
-                  <li key={h.id} className="relative">
-                    <span className="absolute -left-[1.125rem] top-1 w-2.5 h-2.5 rounded-full bg-[#0E4774] border-2 border-white" />
-                    <p className="text-xs text-[#2C3E50]">
-                      <span className="font-medium">{h.to_status}</span>
-                      {h.from_status && <span className="text-[#404D5B]"> from {h.from_status}</span>}
-                    </p>
-                    <p className="text-[11px] text-[#404D5B] tnum">{h.changed_by_name} · {fmtDateTime(h.changed_at)}</p>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
         </div>
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
