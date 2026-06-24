@@ -57,7 +57,7 @@ const hashed = hashPassword(password);
 
 await sql`
   UPDATE users
-  SET password_hash = ${hashed}, must_reset = false, updated_at = NOW()
+  SET password_hash = ${hashed}, must_reset = false
   WHERE id = ${user.id}
 `;
 
