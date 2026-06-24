@@ -22,6 +22,10 @@ interface CurrentWeek {
   week_start: string; week_end: string; available_hrs: number;
   total_planned: number; variance: number; notes: string | null;
 }
+interface GoalHealthCard {
+  id: number; name: string; health: string; target_date: string | null;
+  owner_name: string | null; owner_email: string | null; pct: number;
+}
 interface DashboardData {
   laneProgress: LaneProgress[];
   statusBreakdown: StatusCount[];
@@ -29,6 +33,7 @@ interface DashboardData {
   milestones: Milestone[];
   currentWeek: CurrentWeek | null;
   overloadedWeeks: number;
+  goalHealth: GoalHealthCard[];
 }
 
 async function getData(): Promise<DashboardData | null> {
@@ -69,7 +74,6 @@ export default async function DashboardPage() {
   const totalTasks = data.laneProgress.reduce((s, l) => s + Number(l.total), 0);
   const totalComplete = data.laneProgress.reduce((s, l) => s + Number(l.complete), 0);
   const totalInProgress = data.laneProgress.reduce((s, l) => s + Number(l.in_progress), 0);
-  // Weighted mean of each lane's average % complete, weighted by task count
   const weightedPctSum = data.laneProgress.reduce((s, l) => s + Number(l.avg_pct) * Number(l.total), 0);
   const overallPct = totalTasks ? Math.round(weightedPctSum / totalTasks) : 0;
   const cw = data.currentWeek;
@@ -108,7 +112,6 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      {/* Hero: navy program band with headline progress */}
       <div
         className="rise card overflow-hidden mb-5 border-0"
         style={{ background: 'linear-gradient(135deg, #0E4774 0%, #305F8E 100%)' }}
@@ -126,13 +129,11 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
-        {/* Progress rail */}
         <div className="h-1.5 bg-white/15">
           <div className="h-full" style={{ width: `${overallPct}%`, backgroundColor: 'var(--fusion-orange)' }} />
         </div>
       </div>
 
-      {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {metrics.map((m, i) => (
           <div key={m.label} className="rise card p-5" style={{ ['--i' as string]: i + 1 }}>
@@ -143,8 +144,48 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {data.goalHealth.length > 0 && (
+        <div className="rise card p-5 mb-6" style={{ ['--i' as string]: 5 }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-[#0E4774]">Goal Health</h2>
+            <Link href="/portfolio" className="text-xs font-medium text-[#E8941A] hover:underline">View portfolio</Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.goalHealth.map((g) => {
+              const pct = Number(g.pct);
+              const du = g.target_date ? Math.round((new Date(g.target_date).getTime() - Date.now()) / 86400000) : null;
+              const overdue = du !== null && du < 0 && pct < 100;
+              const dueSoon = du !== null && du >= 0 && du <= 14 && pct < 50;
+              const HEALTH_COLOR: Record<string, string> = {
+                'On Track': '#16a34a', 'At Risk': '#E8941A', 'Off Track': '#C00000', 'Not Started': '#9aa5b1',
+              };
+              const hColor = HEALTH_COLOR[g.health] ?? '#9aa5b1';
+              return (
+                <Link key={g.id} href={`/goals?goal=${g.id}`} className="block rounded-lg border border-gray-100 p-3 hover:bg-[#F4EFEF] transition-colors">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-xs font-semibold text-[#2C3E50] truncate">{g.name}</p>
+                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0"
+                      style={{ backgroundColor: hColor + '22', color: hColor }}>{g.health}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex-1 h-1.5 rounded-full bg-[#E7E6E6] overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#16a34a' : '#0E4774' }} />
+                    </div>
+                    <span className="text-[11px] font-semibold tabular-nums text-[#0E4774]">{pct}%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-[#404D5B]">
+                    <span>{g.owner_name || g.owner_email || 'Unassigned'}</span>
+                    {overdue && <span className="font-semibold text-[#C00000]">Overdue</span>}
+                    {dueSoon && !overdue && <span className="font-semibold text-[#E8941A]">Due soon</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Needs Attention panel */}
         <div className="rise card p-5 lg:col-span-2" style={{ ['--i' as string]: 5 }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-[#0E4774]">Needs Attention</h2>
@@ -176,7 +217,6 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
           <div className="rise card p-5" style={{ ['--i' as string]: 6 }}>
             <h2 className="text-sm font-bold text-[#0E4774] mb-4">Progress by Lane</h2>

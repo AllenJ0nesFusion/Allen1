@@ -1,12 +1,12 @@
 import { getDb } from '@/lib/db';
 import { ensurePercentColumn } from '@/lib/schedule';
+import { ensureGoalsSchema } from '@/lib/goals';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   const sql = getDb();
   await ensurePercentColumn(sql);
 
-  // Progress by lane (leaf tasks only) — avg_pct is the mean % complete across leaf tasks
   const laneProgress = await sql`
     SELECT
       lane,
@@ -19,7 +19,6 @@ export async function GET() {
     ORDER BY lane
   `;
 
-  // Status breakdown (leaf tasks)
   const statusBreakdown = await sql`
     SELECT status, COUNT(*) AS count
     FROM tasks
@@ -28,7 +27,6 @@ export async function GET() {
     ORDER BY count DESC
   `;
 
-  // Needs attention: Decision Required or Blocked
   const needsAttention = await sql`
     SELECT wbs_id, task_name, lane, status, owner, finish_date, notes
     FROM tasks
@@ -38,7 +36,6 @@ export async function GET() {
       finish_date NULLS LAST
   `;
 
-  // Upcoming milestones (from today forward)
   const upcomingMilestones = await sql`
     SELECT id, type, name, date, lane_goal, allen_role
     FROM milestones
@@ -47,12 +44,10 @@ export async function GET() {
     LIMIT 5
   `;
 
-  // Fallback if none upcoming (clock outside project window): show earliest 5
   const milestones = upcomingMilestones.length > 0
     ? upcomingMilestones
     : await sql`SELECT id, type, name, date, lane_goal, allen_role FROM milestones ORDER BY date LIMIT 5`;
 
-  // Current week capacity
   const currentWeek = await sql`
     SELECT week_start, week_end, available_hrs, lane1_planned, lane2_planned,
            lane1_planned + lane2_planned AS total_planned,
@@ -70,10 +65,22 @@ export async function GET() {
         FROM capacity_weeks WHERE week_start >= CURRENT_DATE ORDER BY week_start LIMIT 1
       `;
 
-  // Count of overloaded weeks
   const overloaded = await sql`
     SELECT COUNT(*) AS count FROM capacity_weeks
     WHERE available_hrs - lane1_planned - lane2_planned < 0
+  `;
+
+  await ensureGoalsSchema(sql);
+  const goalHealth = await sql`
+    SELECT
+      g.id, g.name, g.health, g.target_date,
+      u.name AS owner_name, u.email AS owner_email,
+      COALESCE(ROUND(AVG(t.percent_complete) FILTER (WHERE t.outline_level = 3)), 0) AS pct
+    FROM goals g
+    LEFT JOIN tasks t ON t.goal_id = g.id
+    LEFT JOIN users u ON u.id = g.owner_user_id
+    GROUP BY g.id, u.name, u.email
+    ORDER BY g.sort_order NULLS LAST, g.id
   `;
 
   return NextResponse.json({
@@ -83,5 +90,6 @@ export async function GET() {
     milestones,
     currentWeek: fallbackWeek[0] ?? null,
     overloadedWeeks: Number(overloaded[0]?.count ?? 0),
+    goalHealth,
   });
 }

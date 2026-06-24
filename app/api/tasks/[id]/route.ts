@@ -1,5 +1,7 @@
 import { getDb } from '@/lib/db';
 import { ensureDependenciesTable, ensurePercentColumn, ensureAssignedUserColumn, reschedule } from '@/lib/schedule';
+import { ensureTaskStatusHistoryTable } from '@/lib/taskExtensions';
+import { getSession } from '@/lib/session';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -22,12 +24,13 @@ export async function PUT(
   const { status, notes, finish_date, effort_hrs, duration_days, percent_complete, assigned_user_id } = body;
   const pct = percent_complete == null ? null : Math.max(0, Math.min(100, Math.round(percent_complete)));
 
-  // Read current row, merge, write back (neon driver can't compose sql fragments)
   const cur = await sql`SELECT * FROM tasks WHERE wbs_id = ${id}`;
   if (cur.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const c = cur[0];
 
   const newAssignee = assigned_user_id !== undefined ? assigned_user_id : (c.assigned_user_id ?? null);
+  const prevStatus = c.status as string;
+  const nextStatus = status ?? prevStatus;
 
   await sql`
     UPDATE tasks SET
@@ -42,7 +45,17 @@ export async function PUT(
     WHERE wbs_id = ${id}
   `;
 
-  // A date change may push dependent tasks forward
+  if (nextStatus !== prevStatus) {
+    const session = await getSession();
+    if (session) {
+      await ensureTaskStatusHistoryTable(sql);
+      await sql`
+        INSERT INTO task_status_history (wbs_id, from_status, to_status, changed_by_user_id, changed_by_name)
+        VALUES (${id}, ${prevStatus}, ${nextStatus}, ${session.userId}, ${session.name || session.email})
+      `;
+    }
+  }
+
   if (finish_date !== undefined) {
     await reschedule(sql);
   }
@@ -58,7 +71,6 @@ export async function DELETE(
   const sql = getDb();
   const { id } = await params;
 
-  // Block deleting a workstream/lane that still has child tasks
   const children = await sql`SELECT wbs_id FROM tasks WHERE parent_wbs_id = ${id} LIMIT 1`;
   if (children.length > 0) {
     return NextResponse.json(
