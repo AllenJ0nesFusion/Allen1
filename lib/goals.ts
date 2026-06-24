@@ -50,6 +50,20 @@ export async function ensureGoalsSchema(sql: Sql): Promise<void> {
   }
 }
 
+/** Create the goal_checkins table if missing. */
+export async function ensureCheckinsTable(sql: Sql): Promise<void> {
+  await sql`CREATE TABLE IF NOT EXISTS goal_checkins (
+    id BIGSERIAL PRIMARY KEY,
+    goal_id BIGINT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+    week_of DATE NOT NULL,
+    author_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    author_name TEXT,
+    health_snapshot VARCHAR(20) NOT NULL DEFAULT 'On Track',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`;
+}
+
 /** Look up the goal a new task should belong to, based on its lane. */
 export async function goalIdForLane(sql: Sql, lane: string): Promise<number | null> {
   const rows = await sql`SELECT id FROM goals WHERE name = ${lane} ORDER BY id LIMIT 1`;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import CheckinModal from './CheckinModal';
 
 const HEALTH = ['On Track', 'At Risk', 'Off Track', 'Not Started'] as const;
 type Health = (typeof HEALTH)[number];
@@ -25,11 +26,19 @@ interface Goal {
   task_count: number;
   done_count: number;
   pct: number;
+  latest_checkin_notes?: string | null;
+  latest_checkin_week?: string | null;
+  latest_checkin_health?: string | null;
 }
 interface UserOption { id: number; name: string; email: string }
 
 function fmtDate(d: string | null) {
   return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No target date';
+}
+
+function fmtWeekShort(d: string | null | undefined) {
+  if (!d) return null;
+  return 'Wk of ' + new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
@@ -38,6 +47,7 @@ export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Goal | null>(null);
   const [creating, setCreating] = useState(false);
+  const [checkinGoal, setCheckinGoal] = useState<Goal | null>(null);
 
   async function load() {
     setLoading(true);
@@ -45,7 +55,22 @@ export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
       fetch('/api/goals', { cache: 'no-store' }).then((r) => r.ok ? r.json() : []),
       fetch('/api/users/options', { cache: 'no-store' }).then((r) => r.ok ? r.json() : []),
     ]);
-    setGoals(g);
+    // Fetch latest check-in for each goal in parallel
+    const withCheckins = await Promise.all(
+      (g as Goal[]).map(async (goal: Goal) => {
+        const cr = await fetch(`/api/goals/${goal.id}/checkins`, { cache: 'no-store' });
+        if (!cr.ok) return goal;
+        const checkins = await cr.json() as Array<{ notes: string; week_of: string; health_snapshot: string }>;
+        const latest = checkins[0];
+        return {
+          ...goal,
+          latest_checkin_notes: latest?.notes ?? null,
+          latest_checkin_week: (latest?.week_of as string) ?? null,
+          latest_checkin_health: latest?.health_snapshot ?? null,
+        };
+      })
+    );
+    setGoals(withCheckins);
     setUsers(u);
     setLoading(false);
   }
@@ -95,11 +120,31 @@ export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
               <span className="tabular-nums">{Number(g.done_count)}/{Number(g.task_count)} tasks · {fmtDate(g.target_date)}</span>
             </div>
 
-            {canEdit && (
-              <div className="mt-3 pt-3 border-t border-gray-100 text-right">
-                <button onClick={() => setEditing(g)} className="text-xs text-[#0E4774] hover:underline">Edit</button>
+            {/* Latest check-in snippet */}
+            {g.latest_checkin_notes && (
+              <div
+                className="mt-3 px-3 py-2 rounded text-xs text-[#404D5B] border-l-[3px]"
+                style={{
+                  backgroundColor: (HEALTH_COLOR[g.latest_checkin_health ?? ''] ?? '#9aa5b1') + '11',
+                  borderColor: HEALTH_COLOR[g.latest_checkin_health ?? ''] ?? '#9aa5b1',
+                }}
+              >
+                <span className="font-semibold text-[#2C3E50]">{fmtWeekShort(g.latest_checkin_week)}: </span>
+                <span className="line-clamp-2">{g.latest_checkin_notes}</span>
               </div>
             )}
+
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+              <button
+                onClick={() => setCheckinGoal(g)}
+                className="text-xs font-medium text-[#E8941A] hover:underline"
+              >
+                {g.latest_checkin_notes ? 'Update / history' : '+ Weekly check-in'}
+              </button>
+              {canEdit && (
+                <button onClick={() => setEditing(g)} className="text-xs text-[#0E4774] hover:underline">Edit</button>
+              )}
+            </div>
           </div>
         ))}
         {goals.length === 0 && (
@@ -113,6 +158,15 @@ export default function GoalsManager({ canEdit }: { canEdit: boolean }) {
           users={users}
           onClose={() => { setCreating(false); setEditing(null); }}
           onSaved={async () => { setCreating(false); setEditing(null); await load(); }}
+        />
+      )}
+
+      {checkinGoal && (
+        <CheckinModal
+          goalId={checkinGoal.id}
+          goalName={checkinGoal.name}
+          currentHealth={checkinGoal.health}
+          onClose={() => { setCheckinGoal(null); load(); }}
         />
       )}
     </div>

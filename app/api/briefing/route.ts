@@ -1,34 +1,79 @@
 import { getDb } from '@/lib/db';
+import { ensureGoalsSchema, ensureCheckinsTable } from '@/lib/goals';
+import { ensurePercentColumn } from '@/lib/schedule';
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
 export async function POST() {
   const sql = getDb();
-  const tasks = await sql`
-    SELECT DISTINCT
-      t.wbs_id, t.task_name, t.status, t.finish_date, t.owner, t.notes,
-      array_agg(tg.goal ORDER BY tg.goal) AS goals
-    FROM tasks t
-    JOIN task_goals tg ON t.wbs_id = tg.wbs_id
-    WHERE t.outline_level = 3
-    GROUP BY t.wbs_id
-    ORDER BY t.wbs_id
+  await ensureGoalsSchema(sql);
+  await ensureCheckinsTable(sql);
+  await ensurePercentColumn(sql);
+
+  // Goals with rollup progress
+  const goals = await sql`
+    SELECT
+      g.id, g.name, g.health, g.target_date,
+      u.name AS owner_name, u.email AS owner_email,
+      COUNT(t.wbs_id) FILTER (WHERE t.outline_level = 3) AS task_count,
+      COUNT(t.wbs_id) FILTER (WHERE t.outline_level = 3 AND t.status = 'Complete') AS done_count,
+      COALESCE(ROUND(AVG(t.percent_complete) FILTER (WHERE t.outline_level = 3)), 0) AS pct
+    FROM goals g
+    LEFT JOIN tasks t ON t.goal_id = g.id
+    LEFT JOIN users u ON u.id = g.owner_user_id
+    GROUP BY g.id, u.name, u.email
+    ORDER BY g.sort_order NULLS LAST, g.id
+  `;
+
+  // Latest check-in per goal
+  const checkins = await sql`
+    SELECT DISTINCT ON (goal_id)
+      goal_id, week_of, health_snapshot, notes, author_name
+    FROM goal_checkins
+    ORDER BY goal_id, week_of DESC, created_at DESC
+  `;
+  const checkinByGoal = new Map(checkins.map((c) => [Number(c.goal_id), c]));
+
+  // Needs-attention tasks
+  const blocked = await sql`
+    SELECT wbs_id, task_name, lane, status, owner, finish_date, notes
+    FROM tasks
+    WHERE status IN ('Decision Required', 'Blocked')
+    ORDER BY CASE status WHEN 'Blocked' THEN 0 ELSE 1 END, finish_date NULLS LAST
   `;
 
   const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD';
 
-  const taskLines = tasks.map((t) =>
-    `- [${t.wbs_id}] ${t.task_name} | Goals: ${(t.goals as string[]).join(', ')} | Status: ${t.status} | Due: ${formatDate(t.finish_date as string | null)} | Owner: ${t.owner || 'TBD'} | Notes: ${t.notes || 'none'}`
-  ).join('\n');
+  const goalLines = goals.map((g) => {
+    const owner = g.owner_name || g.owner_email || 'Unassigned';
+    const c = checkinByGoal.get(Number(g.id));
+    const checkinLine = c
+      ? `\n  Latest check-in (${formatDate(c.week_of as string)}): [${c.health_snapshot}] ${c.notes}`
+      : '\n  Latest check-in: none';
+    return `Goal: ${g.name} | Owner: ${owner} | Health: ${g.health} | Progress: ${g.pct}% (${g.done_count}/${g.task_count} tasks) | Target: ${formatDate(g.target_date as string | null)}${checkinLine}`;
+  }).join('\n\n');
 
-  const prompt = `You are helping Allen Jones at Fusion Health write a paste-ready L&D Goals Tracker status update.
+  const blockedLines = blocked.length > 0
+    ? blocked.map((t) =>
+        `- [${t.wbs_id}] ${t.task_name} | ${t.status} | Owner: ${t.owner || 'TBD'} | Due: ${formatDate(t.finish_date as string | null)}${t.notes ? ` | Notes: ${t.notes}` : ''}`
+      ).join('\n')
+    : 'None.';
 
-Here are the current WBS tasks for L&D goals:
+  const prompt = `You are helping write a paste-ready L&D departmental goals status update for Allen Jones at Fusion Health.
 
-${taskLines}
+GOALS SUMMARY:
+${goalLines}
 
-Write a concise professional status update suitable for an L&D Goals Tracker. Organize by objective (Obj 1, Obj 2, Obj 3). For each objective, summarize progress, flag any blockers or decisions required, and note upcoming milestones. Use bullet points. Keep the tone executive-appropriate — clear and direct.`;
+BLOCKED / DECISION REQUIRED TASKS:
+${blockedLines}
+
+Write a concise professional status update suitable for a department head audience. Structure it as:
+1. Opening sentence with overall programme health and progress.
+2. One section per goal — name as heading, 2-4 bullet points covering: progress this week (draw from the latest check-in notes if present), any blockers or decisions needed, and what's coming next.
+3. A brief "Needs Attention" section if there are blocked/decision-required tasks.
+
+Tone: executive-appropriate — direct, specific, no filler. Use the check-in notes as the primary source for "what happened this week"; supplement with task data for numbers.`;
 
   const client = new Anthropic();
   const message = await client.messages.create({
