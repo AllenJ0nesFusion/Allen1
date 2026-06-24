@@ -1,5 +1,7 @@
 import { getDb } from '@/lib/db';
 import { ensureDependenciesTable, ensurePercentColumn, ensureAssignedUserColumn, reschedule } from '@/lib/schedule';
+import { ensureTaskStatusHistoryTable } from '@/lib/taskExtensions';
+import { getSession } from '@/lib/session';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -28,6 +30,8 @@ export async function PUT(
   const c = cur[0];
 
   const newAssignee = assigned_user_id !== undefined ? assigned_user_id : (c.assigned_user_id ?? null);
+  const prevStatus = c.status as string;
+  const nextStatus = status ?? prevStatus;
 
   await sql`
     UPDATE tasks SET
@@ -41,6 +45,18 @@ export async function PUT(
       updated_at = NOW()
     WHERE wbs_id = ${id}
   `;
+
+  // Write a status history row whenever the status actually changes
+  if (nextStatus !== prevStatus) {
+    const session = await getSession();
+    if (session) {
+      await ensureTaskStatusHistoryTable(sql);
+      await sql`
+        INSERT INTO task_status_history (wbs_id, from_status, to_status, changed_by_user_id, changed_by_name)
+        VALUES (${id}, ${prevStatus}, ${nextStatus}, ${session.userId}, ${session.name || session.email})
+      `;
+    }
+  }
 
   // A date change may push dependent tasks forward
   if (finish_date !== undefined) {

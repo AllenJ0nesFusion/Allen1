@@ -1,6 +1,7 @@
 import { getDb } from '@/lib/db';
 import { ensureUsersTable, hashPassword, type Role } from '@/lib/auth';
 import { requireRole } from '@/lib/session';
+import { sendInviteEmail } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
 
 const ROLES: Role[] = ['Admin', 'Owner', 'Contributor', 'Viewer'];
