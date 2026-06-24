@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import GoalsManager from '@/components/GoalsManager';
 import { getSession } from '@/lib/session';
 
@@ -10,7 +11,9 @@ export default async function GoalsPage() {
       <p className="text-sm text-[#404D5B] mb-5">
         Departmental goals with owner, target date, health, and rolled-up progress from their tasks.
       </p>
-      <GoalsManager canEdit={canEdit} />
+      <Suspense fallback={<p className="text-sm text-[#404D5B]">Loading goals…</p>}>
+        <GoalsManager canEdit={canEdit} />
+      </Suspense>
     </div>
   );
 }

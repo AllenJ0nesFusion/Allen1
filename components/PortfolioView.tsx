@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const HEALTH_ORDER = ['Off Track', 'At Risk', 'On Track', 'Not Started'] as const;
 const HEALTH_COLOR: Record<string, string> = {
@@ -31,7 +32,6 @@ function fmtDate(d: string | null) {
   return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 }
 
-// Date-only comparison against today (avoids time-of-day skew)
 function daysUntil(d: string | null): number | null {
   if (!d) return null;
   const target = new Date(d);
@@ -42,6 +42,7 @@ function daysUntil(d: string | null): number | null {
 }
 
 export default function PortfolioView() {
+  const router = useRouter();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('health');
@@ -108,7 +109,6 @@ export default function PortfolioView() {
 
   return (
     <div>
-      {/* Summary metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="rise card p-5">
           <p className="eyebrow">Goals tracked</p>
@@ -134,7 +134,6 @@ export default function PortfolioView() {
         </div>
       </div>
 
-      {/* Health distribution bar */}
       <div className="rise card p-5 mb-6">
         <h2 className="text-sm font-bold text-[#0E4774] mb-3">Health distribution</h2>
         <div className="flex h-3 rounded-full overflow-hidden bg-[#E7E6E6]">
@@ -154,7 +153,6 @@ export default function PortfolioView() {
         </div>
       </div>
 
-      {/* Goals table */}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -173,7 +171,7 @@ export default function PortfolioView() {
               const du = daysUntil(g.target_date);
               const overdue = du !== null && du < 0 && pct < 100;
               return (
-                <tr key={g.id} className="border-b border-gray-50 hover:bg-[#F4EFEF] transition-colors">
+                <tr key={g.id} onClick={() => router.push(`/goals?goal=${g.id}`)} className="border-b border-gray-50 hover:bg-[#F4EFEF] transition-colors cursor-pointer">
                   <td className="px-4 py-3">
                     <p className="text-[#2C3E50] font-medium">{g.name}</p>
                     {g.description && <p className="text-xs text-[#404D5B] mt-0.5 line-clamp-1">{g.description}</p>}

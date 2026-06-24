@@ -1,6 +1,7 @@
 import { getDb } from '@/lib/db';
 import { ensureUsersTable, hashPassword, type Role } from '@/lib/auth';
 import { requireRole } from '@/lib/session';
+import { sendInviteEmail } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
 
 const ROLES: Role[] = ['Admin', 'Owner', 'Contributor', 'Viewer'];
@@ -17,7 +18,6 @@ export async function GET() {
   return NextResponse.json(rows);
 }
 
-// Invite a user: create an account with a temporary password they must reset.
 export async function POST(request: NextRequest) {
   const guard = await requireRole('Admin');
   if (guard instanceof NextResponse) return guard;
@@ -45,5 +45,14 @@ export async function POST(request: NextRequest) {
     INSERT INTO users (email, name, password_hash, role, must_reset)
     VALUES (${email}, ${body.name?.trim() ?? ''}, ${hashPassword(tempPassword)}, ${role}, ${true})
   `;
+
+  void sendInviteEmail({
+    to: email,
+    name: body.name?.trim() ?? '',
+    inviterName: guard.name || guard.email,
+    tempPassword,
+    appUrl: process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000',
+  });
+
   return NextResponse.json({ ok: true }, { status: 201 });
 }
