@@ -91,20 +91,25 @@ export async function ensureUsersTable(sql: Sql): Promise<void> {
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`;
 
-  // Bootstrap the first admin from env on an empty users table.
-  const count = await sql`SELECT COUNT(*)::int AS n FROM users`;
-  if ((count[0]?.n ?? 0) === 0) {
-    const email = (process.env.ADMIN_EMAIL ?? 'allen.jones@fusionehr.com').toLowerCase();
-    const password = process.env.ADMIN_PASSWORD;
-    if (password) {
-      await sql`
-        INSERT INTO users (email, name, password_hash, role, must_reset)
-        VALUES (${email}, ${'Administrator'}, ${hashPassword(password)}, ${'Admin'}, ${true})
-        ON CONFLICT (email) DO NOTHING
-      `;
-      console.log(`[auth] Bootstrapped admin account: ${email} (must reset password on first login)`);
-    } else {
-      console.warn('[auth] No users yet. Set ADMIN_EMAIL and ADMIN_PASSWORD in .env.local to bootstrap the first admin.');
+  const email = (process.env.ADMIN_EMAIL ?? 'allen.jones@fusionehr.com').toLowerCase();
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (password) {
+    // ADMIN_PASSWORD set → upsert the admin account and sync the password.
+    // This doubles as a password-reset mechanism: set ADMIN_PASSWORD, restart, sign in, then clear it.
+    const hashed = hashPassword(password);
+    await sql`
+      INSERT INTO users (email, name, password_hash, role, must_reset)
+      VALUES (${email}, ${'Administrator'}, ${hashed}, ${'Admin'}, ${false})
+      ON CONFLICT (email) DO UPDATE
+        SET password_hash = ${hashed}, must_reset = false, role = 'Admin', active = true
+    `;
+    console.log(`[auth] Admin account synced from ADMIN_PASSWORD: ${email}`);
+  } else {
+    // No ADMIN_PASSWORD → only bootstrap if the table is completely empty.
+    const count = await sql`SELECT COUNT(*)::int AS n FROM users`;
+    if ((count[0]?.n ?? 0) === 0) {
+      console.warn('[auth] No users yet. Set ADMIN_EMAIL and ADMIN_PASSWORD in .env.local to create the first admin.');
     }
   }
 }
